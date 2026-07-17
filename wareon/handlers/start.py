@@ -3,9 +3,10 @@ from aiogram.filters import CommandStart
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 
+from wareon.config import settings
 from wareon.db.base import session_factory
 from wareon.db.models import User
-from wareon.keyboards import BACK_TO_MENU, MAIN_MENU
+from wareon.keyboards import BACK_TO_MENU, main_menu
 
 router = Router(name="start")
 
@@ -16,9 +17,15 @@ WELCOME = (
     "• аналитика каналов и групп Telegram\n"
     "• аналитика карточек на маркетплейсах\n"
     "• умные таблицы — пришлите файл, я разберу\n"
-    "• отчёты с графиками и рекомендациями\n\n"
-    "Выберите направление:"
+    "• отчёты с графиками и рекомендациями\n"
 )
+
+DASHBOARD_HINT = "\n✨ «Открыть дашборд» — вся аналитика в одном визуальном экране.\n"
+
+
+def welcome_text() -> str:
+    tail = DASHBOARD_HINT if settings.webapp_enabled else "\n"
+    return WELCOME + tail + "Выберите направление:"
 
 SECTION_HELP = {
     "business": (
@@ -93,13 +100,13 @@ async def cmd_start(message: Message) -> None:
                     User(tg_id=message.from_user.id, username=message.from_user.username)
                 )
                 await session.commit()
-    await message.answer(WELCOME, reply_markup=MAIN_MENU)
+    await message.answer(welcome_text(), reply_markup=main_menu())
 
 
 @router.callback_query(F.data == "menu:main")
 async def cb_main_menu(callback: CallbackQuery) -> None:
     if isinstance(callback.message, Message):
-        await callback.message.edit_text(WELCOME, reply_markup=MAIN_MENU)
+        await callback.message.edit_text(welcome_text(), reply_markup=main_menu())
     await callback.answer()
 
 

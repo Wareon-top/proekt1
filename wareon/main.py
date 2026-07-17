@@ -4,6 +4,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import MenuButtonWebApp, WebAppInfo
 
 from wareon.config import settings
 from wareon.db.base import init_db
@@ -25,6 +26,14 @@ async def main() -> None:
     setup_routers(dp)
 
     scheduler_task = asyncio.create_task(scheduler_loop(bot))
+
+    # Кнопка-меню Telegram (рядом с полем ввода) открывает мини-приложение
+    if settings.webapp_enabled:
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="Дашборд", web_app=WebAppInfo(url=settings.webapp_url)
+            )
+        )
 
     await bot.delete_webhook(drop_pending_updates=True)
     try:

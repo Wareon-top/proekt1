@@ -6,6 +6,12 @@ class Settings(BaseSettings):
 
     bot_token: str = ""
     database_path: str = "wareon.db"
+    # HTTPS-адрес мини-приложения (Web App). Пусто — кнопка дашборда не показывается.
+    webapp_url: str = ""
+
+    @property
+    def webapp_enabled(self) -> bool:
+        return self.webapp_url.startswith("https://")
 
 
 settings = Settings()
