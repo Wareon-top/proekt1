@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Wareon · Пульс бизнеса</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg:#06090A; --panel:#0B1112; --panel-2:#0E1618;
+    --line:rgba(43,232,198,.14); --line-soft:rgba(255,255,255,.06);
+    --ink:#EAF4F2; --muted:#61736F; --dim:#3B4A47;
+    --acc:#2BE8C6; --acc-soft:rgba(43,232,198,.12); --loss:#FF6B6B;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --pad:20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink)}
+  body{
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 28px);
+    min-height:100vh;
+  }
+  .wrap{max-width:460px;margin:0 auto;padding:0 var(--pad)}
+
+  /* ---- top bar ---- */
+  .top{display:flex;align-items:center;justify-content:space-between;
+       padding:18px 0 22px;position:sticky;top:0;background:linear-gradient(var(--bg) 72%,transparent);z-index:5}
+  .brand{font-family:var(--mono);font-weight:700;letter-spacing:.34em;font-size:13px}
+  .brand b{color:var(--acc)}
+  .brand span{color:var(--dim)}
+  .toggle{display:inline-flex;font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+          border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--panel)}
+  .toggle button{font:inherit;letter-spacing:inherit;color:var(--muted);background:none;border:0;
+          padding:7px 13px;cursor:pointer;transition:color .2s}
+  .toggle button.on{color:var(--bg);background:var(--acc)}
+
+  /* ---- hero ---- */
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.34em;color:var(--muted);
+           text-transform:uppercase;display:flex;align-items:center;gap:9px}
+  .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--acc);
+           box-shadow:0 0 0 0 var(--acc);animation:beat 2.4s infinite}
+  @keyframes beat{0%{box-shadow:0 0 0 0 rgba(43,232,198,.5)}70%{box-shadow:0 0 0 7px rgba(43,232,198,0)}100%{box-shadow:0 0 0 0 rgba(43,232,198,0)}}
+  .hero{padding:14px 0 6px}
+  .figure{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums;
+          font-size:clamp(52px,17vw,80px);line-height:.94;letter-spacing:-.03em;
+          display:flex;align-items:baseline;gap:.12em}
+  .figure .cur{color:var(--acc);font-size:.42em;font-weight:600;transform:translateY(-.7em)}
+  .sub{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--muted);margin-top:12px}
+  .delta{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:13px;
+         font-weight:600;color:var(--acc);margin-top:9px}
+  .delta.neg{color:var(--loss)}
+
+  /* ---- signature pulse ---- */
+  .pulse{position:relative;height:74px;margin:16px 0 4px;overflow:hidden;
+         -webkit-mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+                 mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+  .pulse svg{position:absolute;top:0;left:0;height:100%;display:block}
+  .pulse polyline{fill:none;stroke:var(--acc);stroke-width:2;
+         stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 6px rgba(43,232,198,.55))}
+
+  /* ---- sections ---- */
+  section{margin-top:30px}
+  .label{font-family:var(--mono);font-size:11px;letter-spacing:.24em;color:var(--muted);
+         text-transform:uppercase;margin-bottom:14px;display:flex;justify-content:space-between}
+  .label span{color:var(--dim)}
+
+  /* ---- stat tiles ---- */
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .tile{background:var(--panel);border:1px solid var(--line-soft);border-radius:14px;padding:15px 14px}
+  .tile .k{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+  .tile .v{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums;font-size:21px;
+           margin-top:11px;letter-spacing:-.01em}
+  .tile .u{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:3px}
+  .tile.acc .v{color:var(--acc)}
+
+  /* ---- ranked lists ---- */
+  .row{display:flex;align-items:center;gap:14px;padding:13px 0;border-top:1px solid var(--line-soft)}
+  .row:first-child{border-top:0}
+  .rk{font-family:var(--mono);font-size:12px;color:var(--dim);width:14px;flex:none}
+  .nm{font-size:15px;font-weight:500;flex:1;letter-spacing:-.01em}
+  .val{font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums;font-size:14px;
+       display:inline-flex;align-items:center;gap:6px;color:var(--acc)}
+  .val.neg{color:var(--loss)}
+  .val .ar{font-size:10px}
+
+  /* ---- 7-day bars ---- */
+  .bars{display:flex;align-items:flex-end;gap:6px;height:104px}
+  .bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
+  .bar i{width:100%;background:var(--acc-soft);border-radius:5px 5px 0 0;min-height:4px;
+         display:block;transition:height .7s cubic-bezier(.2,.8,.2,1)}
+  .bar.max i{background:var(--acc);box-shadow:0 0 14px rgba(43,232,198,.4)}
+  .bar b{font-family:var(--mono);font-size:10px;color:var(--dim);font-weight:400;letter-spacing:.04em}
+
+  /* ---- pro-only ---- */
+  .pro-only{display:none}
+  body.pro .pro-only{display:block}
+  body.pro .row.pro-only{display:flex}
+  .hint{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em;
+        margin-top:14px;padding-left:13px;border-left:1px solid var(--line)}
+
+  .foot{margin-top:34px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+        color:var(--dim);text-align:center;text-transform:uppercase}
+
+  @media (prefers-reduced-motion:reduce){
+    .eyebrow::before{animation:none}
+    .bar i{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand"><b>WAREON</b> <span>/</span> ANALYTICS</div>
+    <div class="toggle" role="tablist" aria-label="Режим интерфейса">
+      <button id="mSimple" class="on" role="tab" aria-selected="true">Просто</button>
+      <button id="mPro" role="tab" aria-selected="false">Pro</button>
+    </div>
+  </div>
+
+  <div class="eyebrow">Пульс бизнеса · сегодня</div>
+
+  <div class="hero">
+    <div class="figure"><span class="cur">₽</span><span id="net" data-target="247850">0</span></div>
+    <div class="sub">заработано чистыми с начала дня</div>
+    <div class="delta" id="netDelta"><span class="ar">▲</span><span>+12,4% к прошлой неделе</span></div>
+  </div>
+
+  <div class="pulse"><svg id="ecg" viewBox="0 0 600 74" preserveAspectRatio="none" aria-hidden="true">
+    <polyline id="ecgLine" points=""></polyline>
+  </svg></div>
+
+  <section>
+    <div class="tiles">
+      <div class="tile"><div class="k">Выручка</div><div class="v"><span data-target="412300">0</span></div><div class="u">₽ / день</div></div>
+      <div class="tile"><div class="k">Расход</div><div class="v"><span data-target="164450">0</span></div><div class="u">₽ / день</div></div>
+      <div class="tile acc"><div class="k">Маржа</div><div class="v"><span data-target="41">0</span>%</div><div class="u">чистая</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Топ прибыльных <span>7 дней</span></div>
+    <div class="row"><div class="rk">1</div><div class="nm">Чехол iPhone 15</div><div class="val"><span class="ar">▲</span>+38 200 ₽</div></div>
+    <div class="row"><div class="rk">2</div><div class="nm">Кабель USB-C 2м</div><div class="val"><span class="ar">▲</span>+21 050 ₽</div></div>
+    <div class="row"><div class="rk">3</div><div class="nm">Защ. стекло 3D</div><div class="val"><span class="ar">▲</span>+17 400 ₽</div></div>
+  </section>
+
+  <section>
+    <div class="label">Антирейтинг <span>тянут вниз</span></div>
+    <div class="row"><div class="rk">1</div><div class="nm">Зарядка 65W GaN</div><div class="val neg"><span class="ar">▼</span>−4 300 ₽</div></div>
+    <div class="row pro-only"><div class="rk">2</div><div class="nm">Держатель авто</div><div class="val neg"><span class="ar">▼</span>−1 150 ₽</div></div>
+  </section>
+
+  <section>
+    <div class="label">Выручка <span>по дням</span></div>
+    <div class="bars" id="bars"></div>
+  </section>
+
+  <section class="pro-only">
+    <div class="label">Юнит-экономика <span>Pro</span></div>
+    <div class="row"><div class="nm">Средний чек</div><div class="val" style="color:var(--ink)">3 571 ₽</div></div>
+    <div class="row"><div class="nm">CAC / привлечение</div><div class="val" style="color:var(--ink)">612 ₽</div></div>
+    <div class="row"><div class="nm">LTV / CAC</div><div class="val"><span class="ar">▲</span>4,2×</div></div>
+    <div class="hint">Здоровый диапазон LTV/CAC — от 3×. Запас есть — можно агрессивнее вкладываться в трафик.</div>
+  </section>
+
+  <div class="foot">Wareon Analytics · демо-данные</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+  // --- Telegram Web App integration (безопасно вне Telegram) ---
+  try{
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if(tg){ tg.ready(); tg.expand();
+      if(tg.setHeaderColor) tg.setHeaderColor("#06090A");
+      if(tg.setBackgroundColor) tg.setBackgroundColor("#06090A");
+    }
+  }catch(e){}
+
+  // --- форматирование чисел в русском стиле (узкий пробел) ---
+  var NBSP = " ";
+  function fmt(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, NBSP); }
+
+  // --- анимация счётчиков ---
+  function countUp(el, target, dur){
+    if(reduce){ el.textContent = fmt(target); return; }
+    var start = performance.now();
+    function step(t){
+      var p = Math.min(1,(t-start)/dur);
+      var e = 1-Math.pow(1-p,3);              // ease-out cubic
+      el.textContent = fmt(target*e);
+      if(p<1) requestAnimationFrame(step);
+      else el.textContent = fmt(target);
+    }
+    requestAnimationFrame(step);
+  }
+  var counters = document.querySelectorAll("[data-target]");
+  counters.forEach(function(el){ countUp(el, +el.dataset.target, 1100); });
+
+  // --- живой «тикающий» счётчик чистой прибыли ---
+  var netEl = document.getElementById("net");
+  var netVal = +netEl.dataset.target;
+  if(!reduce){
+    setTimeout(function(){
+      setInterval(function(){
+        netVal += 120 + Math.floor(Math.random()*680);
+        netEl.textContent = fmt(netVal);
+      }, 4200);
+    }, 1400);
+  }
+
+  // --- сигнатурный пульс (осциллограф) ---
+  var beat = [0,0,3,-4,8,0,0,0,-26,42,-20,0,0,0,4,-3,0,0]; // относительные dy одного удара
+  function buildLine(){
+    var mid = 37, stepX = 600/ (beat.length*2.4), x = 0, pts = [];
+    // два одинаковых прохода для бесшовной прокрутки
+    for(var pass=0; pass<2; pass++){
+      for(var i=0;i<beat.length;i++){ pts.push(x.toFixed(1)+","+(mid+beat[i])); x+=stepX; }
+    }
+    return {pts:pts.join(" "), half:x/2};
+  }
+  var line = buildLine();
+  var poly = document.getElementById("ecgLine");
+  var svg = document.getElementById("ecg");
+  poly.setAttribute("points", line.pts);
+  svg.setAttribute("viewBox","0 0 "+line.half+" 74");
+  svg.style.width = (line.half*2)+"px";
+  if(!reduce && poly.animate){
+    poly.animate([{transform:"translateX(0)"},{transform:"translateX(-"+line.half+"px)"}],
+      {duration:2600, iterations:Infinity, easing:"linear"});
+  }
+
+  // --- столбики выручки по дням ---
+  var days = [["Пн",210],["Вт",265],["Ср",180],["Чт",320],["Пт",412],["Сб",298],["Вс",150]];
+  var maxV = Math.max.apply(null, days.map(function(d){return d[1];}));
+  var barsEl = document.getElementById("bars");
+  days.forEach(function(d){
+    var wrap = document.createElement("div");
+    wrap.className = "bar" + (d[1]===maxV?" max":"");
+    var bar = document.createElement("i");
+    var lab = document.createElement("b"); lab.textContent = d[0];
+    wrap.appendChild(bar); wrap.appendChild(lab); barsEl.appendChild(wrap);
+    requestAnimationFrame(function(){ bar.style.height = reduce ? (d[1]/maxV*84+"%") : "0%";
+      if(!reduce) setTimeout(function(){ bar.style.height = (d[1]/maxV*84)+"%"; }, 120); });
+  });
+
+  // --- тумблер Просто / Pro ---
+  var s = document.getElementById("mSimple"), p = document.getElementById("mPro");
+  function mode(pro){
+    document.body.classList.toggle("pro", pro);
+    p.classList.toggle("on", pro); s.classList.toggle("on", !pro);
+    p.setAttribute("aria-selected", pro); s.setAttribute("aria-selected", !pro);
+  }
+  s.onclick=function(){mode(false);}; p.onclick=function(){mode(true);};
+})();
+</script>
+</body>
+</html>
