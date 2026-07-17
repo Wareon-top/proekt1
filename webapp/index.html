@@ -7,10 +7,11 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root{
-    --bg:#06090A; --panel:#0B1112; --panel-2:#0E1618;
-    --line:rgba(43,232,198,.14); --line-soft:rgba(255,255,255,.06);
-    --ink:#EAF4F2; --muted:#61736F; --dim:#3B4A47;
-    --acc:#2BE8C6; --acc-soft:rgba(43,232,198,.12); --loss:#FF6B6B;
+    --bg:#0A0908; --panel:#141210; --panel-2:#181510;
+    --line:rgba(214,180,98,.18); --line-soft:rgba(255,255,255,.05);
+    --ink:#F4F1E9; --muted:#8B8272; --dim:#514A3B;
+    --acc:#D6B462; --acc-soft:rgba(214,180,98,.11); --loss:#C07A6E;
+    --gold-grad:linear-gradient(105deg,#F3E3B0,#D6B462 44%,#A87C2C);
     --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     --pad:20px;
@@ -29,7 +30,7 @@
   .top{display:flex;align-items:center;justify-content:space-between;
        padding:18px 0 22px;position:sticky;top:0;background:linear-gradient(var(--bg) 72%,transparent);z-index:5}
   .brand{font-family:var(--mono);font-weight:700;letter-spacing:.34em;font-size:13px}
-  .brand b{color:var(--acc)}
+  .brand b{background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
   .brand span{color:var(--dim)}
   .toggle{display:inline-flex;font-family:var(--mono);font-size:11px;letter-spacing:.12em;
           border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--panel)}
@@ -42,12 +43,13 @@
            text-transform:uppercase;display:flex;align-items:center;gap:9px}
   .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--acc);
            box-shadow:0 0 0 0 var(--acc);animation:beat 2.4s infinite}
-  @keyframes beat{0%{box-shadow:0 0 0 0 rgba(43,232,198,.5)}70%{box-shadow:0 0 0 7px rgba(43,232,198,0)}100%{box-shadow:0 0 0 0 rgba(43,232,198,0)}}
+  @keyframes beat{0%{box-shadow:0 0 0 0 rgba(214,180,98,.5)}70%{box-shadow:0 0 0 7px rgba(214,180,98,0)}100%{box-shadow:0 0 0 0 rgba(214,180,98,0)}}
   .hero{padding:14px 0 6px}
   .figure{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums;
           font-size:clamp(52px,17vw,80px);line-height:.94;letter-spacing:-.03em;
           display:flex;align-items:baseline;gap:.12em}
-  .figure .cur{color:var(--acc);font-size:.42em;font-weight:600;transform:translateY(-.7em)}
+  .figure .cur{background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;
+          color:transparent;font-size:.42em;font-weight:600;transform:translateY(-.7em)}
   .sub{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--muted);margin-top:12px}
   .delta{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:13px;
          font-weight:600;color:var(--acc);margin-top:9px}
@@ -59,7 +61,7 @@
                  mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
   .pulse svg{position:absolute;top:0;left:0;height:100%;display:block}
   .pulse polyline{fill:none;stroke:var(--acc);stroke-width:2;
-         stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 6px rgba(43,232,198,.55))}
+         stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 6px rgba(214,180,98,.5))}
 
   /* ---- sections ---- */
   section{margin-top:30px}
@@ -91,7 +93,7 @@
   .bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
   .bar i{width:100%;background:var(--acc-soft);border-radius:5px 5px 0 0;min-height:4px;
          display:block;transition:height .7s cubic-bezier(.2,.8,.2,1)}
-  .bar.max i{background:var(--acc);box-shadow:0 0 14px rgba(43,232,198,.4)}
+  .bar.max i{background:var(--gold-grad);box-shadow:0 0 14px rgba(214,180,98,.35)}
   .bar b{font-family:var(--mono);font-size:10px;color:var(--dim);font-weight:400;letter-spacing:.04em}
 
   /* ---- pro-only ---- */
@@ -179,8 +181,8 @@
   try{
     var tg = window.Telegram && window.Telegram.WebApp;
     if(tg){ tg.ready(); tg.expand();
-      if(tg.setHeaderColor) tg.setHeaderColor("#06090A");
-      if(tg.setBackgroundColor) tg.setBackgroundColor("#06090A");
+      if(tg.setHeaderColor) tg.setHeaderColor("#0A0908");
+      if(tg.setBackgroundColor) tg.setBackgroundColor("#0A0908");
     }
   }catch(e){}
 
