@@ -31,8 +31,9 @@ async def on_document(message: Message, bot: Bot) -> None:
     buffer = await bot.download_file(file.file_path)
     assert buffer is not None
 
+    file_bytes = buffer.read()
     try:
-        df = tables.load_table(buffer.read(), doc.file_name or "file.csv")
+        df = tables.load_table(file_bytes, doc.file_name or "file.csv")
         summary = tables.summarize_table(df, doc.file_name or "file")
     except Exception:
         await message.answer(
@@ -47,10 +48,15 @@ async def on_document(message: Message, bot: Bot) -> None:
                     user_tg_id=message.from_user.id,
                     file_name=doc.file_name or "file",
                     summary=summary,
+                    content=file_bytes,
                 )
             )
             await session.commit()
-    await message.answer(summary)
+    await message.answer(
+        summary
+        + "\n\n💬 Теперь можно спрашивать обычным текстом: "
+        "«сумма выручки», «топ товаров по выручке», «какой товар принёс больше всего?»"
+    )
 
 
 @router.message(Command("tables"))

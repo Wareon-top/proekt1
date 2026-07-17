@@ -1,6 +1,15 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    Float,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from wareon.db.base import Base
@@ -66,4 +75,31 @@ class TableUpload(Base):
     user_tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
     file_name: Mapped[str] = mapped_column(String(255))
     summary: Mapped[str] = mapped_column(Text)
+    content: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ReportSubscription(Base):
+    """Подписка на регулярный отчёт: ежедневный или еженедельный."""
+
+    __tablename__ = "report_subscriptions"
+    __table_args__ = (UniqueConstraint("user_tg_id", "kind", name="uq_sub_user_kind"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # daily | weekly
+    hour: Mapped[int] = mapped_column(Integer)  # время по МСК
+    minute: Mapped[int] = mapped_column(Integer, default=0)
+    next_run_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class AlertSetting(Base):
+    """Порог алерта по марже: предупреждаем, когда маржа за сутки ниже порога."""
+
+    __tablename__ = "alert_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_tg_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    margin_threshold_pct: Mapped[float] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

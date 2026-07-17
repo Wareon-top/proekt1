@@ -8,6 +8,7 @@ from aiogram.enums import ParseMode
 from wareon.config import settings
 from wareon.db.base import init_db
 from wareon.handlers import setup_routers
+from wareon.services.scheduler import scheduler_loop
 
 
 async def main() -> None:
@@ -23,17 +24,22 @@ async def main() -> None:
     dp = Dispatcher()
     setup_routers(dp)
 
+    scheduler_task = asyncio.create_task(scheduler_loop(bot))
+
     await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(
-        bot,
-        allowed_updates=[
-            "message",
-            "callback_query",
-            "channel_post",
-            "my_chat_member",
-            "chat_member",
-        ],
-    )
+    try:
+        await dp.start_polling(
+            bot,
+            allowed_updates=[
+                "message",
+                "callback_query",
+                "channel_post",
+                "my_chat_member",
+                "chat_member",
+            ],
+        )
+    finally:
+        scheduler_task.cancel()
 
 
 if __name__ == "__main__":

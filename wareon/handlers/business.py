@@ -1,12 +1,41 @@
+from datetime import datetime, timedelta, timezone
+
 from aiogram import Router
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from wareon.db.base import session_factory
-from wareon.db.models import Sale
+from wareon.db.models import AlertSetting, Sale
 from wareon.services import analytics
 
 router = Router(name="business")
+
+
+async def _margin_alert(session: AsyncSession, user_tg_id: int) -> str | None:
+    """Текст алерта, если маржа за последние сутки ниже порога пользователя."""
+    setting = await session.scalar(
+        select(AlertSetting).where(AlertSetting.user_tg_id == user_tg_id)
+    )
+    if setting is None:
+        return None
+    since = datetime.now(timezone.utc) - timedelta(days=1)
+    rows = (
+        await session.scalars(
+            select(Sale).where(Sale.user_tg_id == user_tg_id, Sale.created_at >= since)
+        )
+    ).all()
+    revenue = sum(s.revenue for s in rows)
+    if not revenue:
+        return None
+    margin = (revenue - sum(s.cost for s in rows)) / revenue * 100
+    if margin < setting.margin_threshold_pct:
+        return (
+            f"\n\n⚠️ <b>Алерт:</b> маржа за сутки {margin:.1f}% — ниже порога "
+            f"{setting.margin_threshold_pct:g}%."
+        )
+    return None
 
 
 def _floats(command: CommandObject, count_min: int, count_max: int | None = None) -> list[float]:
@@ -42,6 +71,7 @@ async def cmd_sale(message: Message, command: CommandObject) -> None:
             Sale(user_tg_id=message.from_user.id, revenue=revenue, cost=cost, source=source)
         )
         await session.commit()
+        alert = await _margin_alert(session, message.from_user.id)
 
     profit = revenue - cost
     await message.answer(
@@ -49,6 +79,7 @@ async def cmd_sale(message: Message, command: CommandObject) -> None:
         f"прибыль {profit:,.2f} ₽"
         + (f", источник — {source}" if source else "")
         + "\n\nСводка за период: /report"
+        + (alert or "")
     )
 
 
