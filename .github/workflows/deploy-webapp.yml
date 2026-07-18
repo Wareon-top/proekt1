@@ -2,7 +2,11 @@ name: Deploy webapp to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # Pages деплоится только с дефолтной ветки репозитория (ограничение
+    # окружения github-pages). Здесь — дефолтная ветка проекта.
+    branches:
+      - claude/wareon-analytics-telegram-bot-axhp0d
+      - main
     paths:
       - "webapp/**"
       - ".github/workflows/deploy-webapp.yml"
