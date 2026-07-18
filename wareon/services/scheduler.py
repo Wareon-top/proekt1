@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from wareon.db.base import session_factory
 from wareon.db.models import ReportSubscription
-from wareon.services import reports
+from wareon.services import ai, reports
 
 MSK = timezone(timedelta(hours=3))
 CHECK_INTERVAL_SEC = 30
@@ -45,23 +45,29 @@ async def process_due_subscriptions(bot: Bot) -> int:
             )
         ).all()
         for sub in due:
-            days = 7 if sub.kind == "weekly" else 1
             try:
-                summary = await reports.sales_summary(session, sub.user_tg_id, days)
-                title = "🗓 Еженедельный отчёт" if sub.kind == "weekly" else "🗓 Ежедневный отчёт"
-                text = f"{title}\n\n{reports.format_summary(summary)}"
-                chart = reports.revenue_chart_png(summary)
-                if chart:
-                    await bot.send_photo(
-                        sub.user_tg_id,
-                        BufferedInputFile(chart, filename="revenue.png"),
-                        caption=text,
-                    )
+                if sub.kind == "ai":
+                    brief = await ai.daily_brief(session, sub.user_tg_id)
+                    await bot.send_message(sub.user_tg_id, "🧠 Утренняя ИИ-сводка\n\n" + brief)
                 else:
-                    await bot.send_message(sub.user_tg_id, text)
+                    days = 7 if sub.kind == "weekly" else 1
+                    summary = await reports.sales_summary(session, sub.user_tg_id, days)
+                    title = (
+                        "🗓 Еженедельный отчёт" if sub.kind == "weekly" else "🗓 Ежедневный отчёт"
+                    )
+                    text = f"{title}\n\n{reports.format_summary(summary)}"
+                    chart = reports.revenue_chart_png(summary)
+                    if chart:
+                        await bot.send_photo(
+                            sub.user_tg_id,
+                            BufferedInputFile(chart, filename="revenue.png"),
+                            caption=text,
+                        )
+                    else:
+                        await bot.send_message(sub.user_tg_id, text)
                 sent += 1
             except Exception:
-                logger.exception("Не удалось отправить отчёт пользователю %s", sub.user_tg_id)
+                logger.exception("Не удалось отправить сводку пользователю %s", sub.user_tg_id)
             sub.next_run_at = next_run(sub.kind, sub.hour, sub.minute, now).replace(tzinfo=None)
         await session.commit()
     return sent

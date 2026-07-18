@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 
 from wareon.services.scheduler import MSK, next_run
@@ -36,3 +37,41 @@ class TestNextRunWeekly:
         # понедельник 20.07, 12:00 МСК, отчёт на 10:00 — через неделю
         run = next_run("weekly", 10, 0, utc(2026, 7, 20, 9, 0))
         assert run.astimezone(MSK).strftime("%d %H:%M") == "27 10:00"
+
+
+class _FakeBot:
+    def __init__(self):
+        self.sent = []
+
+    async def send_message(self, uid, text):
+        self.sent.append((uid, text))
+
+    async def send_photo(self, *a, **k):
+        self.sent.append(("photo", None))
+
+
+def test_scheduler_sends_ai_brief(monkeypatch):
+    from wareon.db.base import init_db, session_factory
+    from wareon.db.models import ReportSubscription
+    from wareon.services import ai, scheduler
+
+    async def fake_brief(session, uid):
+        return "СВОДКА ИИ на сегодня"
+
+    monkeypatch.setattr(ai, "daily_brief", fake_brief)
+    bot = _FakeBot()
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            s.add(
+                ReportSubscription(
+                    user_tg_id=4242, kind="ai", hour=9, minute=0,
+                    next_run_at=datetime(2000, 1, 1),
+                )
+            )
+            await s.commit()
+        return await scheduler.process_due_subscriptions(bot)
+
+    asyncio.run(flow())
+    assert any("СВОДКА ИИ" in t for who, t in bot.sent if who == 4242)

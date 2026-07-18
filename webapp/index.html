@@ -330,7 +330,7 @@
     <div class="eyebrow dot">ИИ-мозг · утренняя сводка</div>
     <div style="height:12px"></div>
     <section style="margin-top:8px">
-      <div class="brief"><div class="q">Вчера заработано <b>231 400 ₽</b> чистыми — на 8% выше среднего. Главный драйвер — Telegram-реклама. Приоритеты на сегодня: <b>1)</b> поднять цену на «Зарядку 65W» — она в минусе; <b>2)</b> заказать поставку «Чехлов» — остаток на 4 дня; <b>3)</b> ответить на 3 отзыва с рейтингом ниже 4★.</div></div>
+      <div class="brief"><div class="q" id="ai-brief">Вчера заработано <b>231 400 ₽</b> чистыми — на 8% выше среднего. Главный драйвер — Telegram-реклама. Приоритеты на сегодня: <b>1)</b> поднять цену на «Зарядку 65W» — она в минусе; <b>2)</b> заказать поставку «Чехлов» — остаток на 4 дня; <b>3)</b> ответить на 3 отзыва с рейтингом ниже 4★.</div></div>
     </section>
 
     <section>
@@ -491,6 +491,7 @@
       var net=view.querySelector('.figure [data-target="247850"]'), v=247850;
       setTimeout(function(){ setInterval(function(){ v+=120+Math.floor(Math.random()*680); net.textContent=fmt(v); },4200); },1400);
     }
+    if(name==="ai") loadBrief();
   }
   // --- загрузка реальных данных «Пульса» из API ---
   function setNum(id, value){
@@ -549,6 +550,23 @@
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(applyPulse)
       .catch(function(){ /* нет связи — остаёмся на демо */ });
+  }
+
+  // --- реальная ИИ-сводка для экрана «ИИ-мозг» ---
+  var briefLoaded = false;
+  function loadBrief(){
+    if(briefLoaded || !tg || !API_BASE) return;
+    var initData = tg.initData || "";
+    if(!initData) return;
+    briefLoaded = true;
+    fetch(API_BASE + "/api/brief", {headers:{"X-Init-Data": initData}})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if(!d || !d.text) return;
+        var el = document.getElementById("ai-brief");
+        if(el){ el.style.whiteSpace = "pre-wrap"; el.textContent = d.text; }
+      })
+      .catch(function(){ /* нет связи — остаётся демо */ });
   }
 
   // --- переключение вкладок + нативные кнопки ---

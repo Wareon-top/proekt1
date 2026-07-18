@@ -16,11 +16,18 @@ SUBSCRIBE_HELP = (
     "🗓 <b>Регулярные отчёты</b> (время московское)\n\n"
     "<code>/subscribe daily 09:00</code> — ежедневный отчёт\n"
     "<code>/subscribe weekly 10:00</code> — еженедельный, по понедельникам\n"
+    "<code>/subscribe ai 09:00</code> — 🧠 утренняя ИИ-сводка каждый день\n"
     "<code>/unsubscribe</code> — отключить все\n\n"
     "⚠️ <b>Алерты</b>\n"
     "<code>/alert 20</code> — предупреждать, если маржа за сутки ниже 20%\n"
     "<code>/alert off</code> — выключить алерт"
 )
+
+SUB_KINDS = {
+    "daily": "Ежедневный отчёт",
+    "weekly": "Еженедельный отчёт (по понедельникам)",
+    "ai": "Утренняя ИИ-сводка",
+}
 
 
 def _parse_time(arg: str | None, default_hour: int) -> tuple[int, int] | None:
@@ -52,8 +59,7 @@ async def cmd_subscribe(message: Message, command: CommandObject) -> None:
         if subs:
             lines = ["Текущие подписки:"]
             for s in subs:
-                kind = "ежедневно" if s.kind == "daily" else "еженедельно (пн)"
-                lines.append(f"• {kind} в {s.hour:02d}:{s.minute:02d} МСК")
+                lines.append(f"• {SUB_KINDS.get(s.kind, s.kind)} в {s.hour:02d}:{s.minute:02d} МСК")
             lines.append("")
             lines.append(SUBSCRIBE_HELP)
             await message.answer("\n".join(lines))
@@ -62,7 +68,7 @@ async def cmd_subscribe(message: Message, command: CommandObject) -> None:
         return
 
     kind = args[0].lower()
-    if kind not in ("daily", "weekly"):
+    if kind not in SUB_KINDS:
         await message.answer(SUBSCRIBE_HELP)
         return
     parsed = _parse_time(args[1] if len(args) > 1 else None, default_hour=9)
@@ -94,10 +100,9 @@ async def cmd_subscribe(message: Message, command: CommandObject) -> None:
             )
         await session.commit()
 
-    kind_ru = "Ежедневный" if kind == "daily" else "Еженедельный (по понедельникам)"
     first = run_at.replace(tzinfo=timezone.utc).astimezone(MSK).strftime("%d.%m в %H:%M")
     await message.answer(
-        f"✅ {kind_ru} отчёт включён — {hour:02d}:{minute:02d} МСК.\n"
+        f"✅ {SUB_KINDS[kind]} включён — {hour:02d}:{minute:02d} МСК.\n"
         f"Первый придёт {first} (МСК)."
     )
 
