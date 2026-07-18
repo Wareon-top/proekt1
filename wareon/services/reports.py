@@ -42,6 +42,7 @@ class SalesSummary:
     average_check: float
     by_source: dict[str, float]
     by_day: dict[str, float]
+    by_product: dict[str, float] = field(default_factory=dict)  # прибыль по товарам
     # сравнение с предыдущим периодом той же длины
     prev_orders: int = 0
     prev_revenue: float = 0.0
@@ -86,6 +87,7 @@ async def sales_summary(session: AsyncSession, user_tg_id: int, days: int = 7) -
     by_source: dict[str, float] = {}
     by_day: dict[str, float] = {}
     by_weekday: dict[int, float] = {}
+    by_product: dict[str, float] = {}
     for s in rows:
         src = s.source or "не указан"
         by_source[src] = by_source.get(src, 0.0) + s.revenue
@@ -93,6 +95,8 @@ async def sales_summary(session: AsyncSession, user_tg_id: int, days: int = 7) -
         by_day[day] = by_day.get(day, 0.0) + s.revenue
         wd = s.created_at.weekday()
         by_weekday[wd] = by_weekday.get(wd, 0.0) + s.revenue
+        if s.product:
+            by_product[s.product] = by_product.get(s.product, 0.0) + (s.revenue - s.cost)
 
     best_weekday = None
     if len(by_day) >= 7 and revenue:
@@ -108,6 +112,7 @@ async def sales_summary(session: AsyncSession, user_tg_id: int, days: int = 7) -
         average_check=round(avg_check, 2),
         by_source=by_source,
         by_day=dict(sorted(by_day.items())),
+        by_product={k: round(v, 2) for k, v in by_product.items()},
         prev_orders=len(prev_rows),
         prev_revenue=round(prev_revenue, 2),
         revenue_delta_pct=delta_pct(revenue, prev_revenue),
@@ -116,6 +121,17 @@ async def sales_summary(session: AsyncSession, user_tg_id: int, days: int = 7) -
         margin_delta_pp=round(margin - prev_margin, 2) if prev_margin is not None else None,
         best_weekday=best_weekday,
     )
+
+
+async def today_profit(session: AsyncSession, user_tg_id: int) -> float:
+    """Чистая прибыль (выручка − себестоимость) с начала текущих суток (UTC)."""
+    start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = (
+        await session.scalars(
+            select(Sale).where(Sale.user_tg_id == user_tg_id, Sale.created_at >= start)
+        )
+    ).all()
+    return round(sum(s.revenue - s.cost for s in rows), 2)
 
 
 def _fmt_delta(d: float | None, unit: str = "%") -> str:

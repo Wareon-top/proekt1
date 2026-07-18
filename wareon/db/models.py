@@ -38,6 +38,7 @@ class Sale(Base):
     revenue: Mapped[float] = mapped_column(Float)
     cost: Mapped[float] = mapped_column(Float, default=0.0)
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    product: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
 
 

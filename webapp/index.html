@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Wareon Analytics</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<!-- Адрес «склада данных» (API). Впишите после деплоя бэкенда, напр.
+     "https://wareon-api.onrender.com". Пусто → дашборд показывает демо-цифры. -->
+<script>window.WAREON_API = "";</script>
 <style>
   :root{
     --bg:#0A0908; --panel:#141210; --panel-2:#181510;
@@ -201,28 +204,28 @@
   <div class="view on" data-view="pulse">
     <div class="eyebrow dot">Пульс бизнеса · сегодня</div>
     <div class="hero">
-      <div class="figure"><span class="cur">₽</span><span data-target="247850">0</span></div>
-      <div class="sub">заработано чистыми с начала дня</div>
-      <div class="delta"><span class="ar">▲</span><span>+12,4% к прошлой неделе</span></div>
+      <div class="figure"><span class="cur">₽</span><span id="p-net" data-target="247850">0</span></div>
+      <div class="sub" id="p-sub">заработано чистыми с начала дня</div>
+      <div class="delta" id="p-delta"><span class="ar">▲</span><span>+12,4% к прошлой неделе</span></div>
     </div>
     <div class="pulse"><svg viewBox="0 0 600 74" preserveAspectRatio="none" aria-hidden="true"><polyline points=""></polyline></svg></div>
 
     <section>
       <div class="tiles">
-        <div class="tile"><div class="k">Выручка</div><div class="v"><span data-target="412300">0</span></div><div class="u">₽ / день</div></div>
-        <div class="tile"><div class="k">Расход</div><div class="v"><span data-target="164450">0</span></div><div class="u">₽ / день</div></div>
-        <div class="tile acc"><div class="k">Маржа</div><div class="v"><span data-target="41">0</span>%</div><div class="u">чистая</div></div>
+        <div class="tile"><div class="k">Выручка</div><div class="v"><span id="p-rev" data-target="412300">0</span></div><div class="u" id="p-rev-u">₽ / период</div></div>
+        <div class="tile"><div class="k">Расход</div><div class="v"><span id="p-cost" data-target="164450">0</span></div><div class="u">₽ / период</div></div>
+        <div class="tile acc"><div class="k">Маржа</div><div class="v"><span id="p-margin" data-target="41">0</span>%</div><div class="u">чистая</div></div>
       </div>
     </section>
 
-    <section>
-      <div class="label">Топ прибыльных <span>7 дней</span></div>
+    <section id="sec-top">
+      <div class="label">Топ прибыльных <span id="p-period">7 дней</span></div>
       <div class="row"><div class="rk">1</div><div class="nm">Чехол iPhone 15</div><div class="val"><span class="ar">▲</span>+38 200 ₽</div></div>
       <div class="row"><div class="rk">2</div><div class="nm">Кабель USB-C 2м</div><div class="val"><span class="ar">▲</span>+21 050 ₽</div></div>
       <div class="row"><div class="rk">3</div><div class="nm">Защ. стекло 3D</div><div class="val"><span class="ar">▲</span>+17 400 ₽</div></div>
     </section>
 
-    <section>
+    <section id="sec-anti">
       <div class="label">Антирейтинг <span>тянут вниз</span></div>
       <div class="row"><div class="rk">1</div><div class="nm">Зарядка 65W GaN</div><div class="val neg"><span class="ar">▼</span>−4 300 ₽</div></div>
       <div class="row pro-only"><div class="rk">2</div><div class="nm">Держатель авто</div><div class="val neg"><span class="ar">▼</span>−1 150 ₽</div></div>
@@ -230,7 +233,7 @@
 
     <section>
       <div class="label">Выручка <span>по дням</span></div>
-      <div class="bars" data-bars="210,265,180,320,412,298,150" data-labels="Пн,Вт,Ср,Чт,Пт,Сб,Вс"></div>
+      <div class="bars" id="p-bars" data-bars="210,265,180,320,412,298,150" data-labels="Пн,Вт,Ср,Чт,Пт,Сб,Вс"></div>
     </section>
 
     <section class="pro-only">
@@ -416,6 +419,9 @@
   var ctaBtn = document.getElementById("ctaBtn");
   function primaryAction(){ haptic("medium"); notify(ACT[currentTab]); }
 
+  // адрес «склада» данных. Пусто → дашборд остаётся на демо-цифрах.
+  var API_BASE = (window.WAREON_API || "").replace(/\/+$/, "");
+
   // --- инициализация Telegram Mini App ---
   if(tg){
     safe(function(){ tg.ready(); });
@@ -486,6 +492,65 @@
       setTimeout(function(){ setInterval(function(){ v+=120+Math.floor(Math.random()*680); net.textContent=fmt(v); },4200); },1400);
     }
   }
+  // --- загрузка реальных данных «Пульса» из API ---
+  function setNum(id, value){
+    var el = document.getElementById(id); if(!el) return;
+    if(reduce){ el.textContent = fmt(value); } else countUp(el, value, 900);
+  }
+  function money(v){ return (v<0?"−":"+") + fmt(Math.abs(v)) + " ₽"; }
+  function renderRows(sectionId, list, neg){
+    var sec = document.getElementById(sectionId); if(!sec) return;
+    sec.querySelectorAll(".row").forEach(function(r){ r.remove(); });
+    if(!list || !list.length){
+      var e = document.createElement("div"); e.className = "row";
+      e.innerHTML = '<div class="nm" style="color:var(--dim)">Нет данных за период</div>';
+      sec.appendChild(e); return;
+    }
+    list.forEach(function(it, i){
+      var row = document.createElement("div"); row.className = "row";
+      row.innerHTML = '<div class="rk">' + (i+1) + '</div><div class="nm">' +
+        String(it.name) + '</div><div class="val' + (neg?" neg":"") + '"><span class="ar">' +
+        (neg?"▼":"▲") + '</span>' + money(it.profit) + '</div>';
+      sec.appendChild(row);
+    });
+  }
+  function renderBars(byDay){
+    var el = document.getElementById("p-bars"); if(!el) return;
+    var last = byDay.slice(-7);
+    el.innerHTML = "";
+    el.dataset.bars = last.map(function(d){ return Math.max(0, d.revenue); }).join(",");
+    el.dataset.labels = last.map(function(d){ return d.day; }).join(",");
+    buildBars(el);
+  }
+  function applyPulse(d){
+    if(!d || !d.has_data) return;
+    setNum("p-net", d.net_today);
+    setNum("p-rev", d.revenue);
+    setNum("p-cost", d.cost);
+    setNum("p-margin", d.margin_pct);
+    safe(function(){ document.getElementById("p-rev-u").textContent = "₽ / " + d.days + " дн."; });
+    safe(function(){ document.getElementById("p-period").textContent = d.days + " дн."; });
+    if(d.revenue_delta_pct != null){
+      var up = d.revenue_delta_pct >= 0, delta = document.getElementById("p-delta");
+      delta.className = "delta" + (up ? "" : " neg");
+      delta.innerHTML = '<span class="ar">' + (up?"▲":"▼") + '</span><span>' +
+        (up?"+":"−") + Math.abs(d.revenue_delta_pct).toString().replace(".", ",") +
+        "% к прошлому периоду</span>";
+    }
+    renderRows("sec-top", d.top_products, false);
+    renderRows("sec-anti", d.antirating, true);
+    if(d.by_day && d.by_day.length) renderBars(d.by_day);
+  }
+  function loadPulse(){
+    if(!tg || !API_BASE) return;
+    var initData = tg.initData || "";
+    if(!initData) return;
+    fetch(API_BASE + "/api/pulse?days=7", {headers:{"X-Init-Data": initData}})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(applyPulse)
+      .catch(function(){ /* нет связи — остаёмся на демо */ });
+  }
+
   // --- переключение вкладок + нативные кнопки ---
   var tabs = document.querySelectorAll(".tab"), views = document.querySelectorAll(".view");
   function setTab(name){
@@ -515,6 +580,7 @@
   s.onclick = function(){ mode(false); }; p.onclick = function(){ mode(true); };
 
   setTab("pulse");
+  loadPulse(); // подтянуть реальные цифры, если задан API и есть данные
 })();
 </script>
 </body>

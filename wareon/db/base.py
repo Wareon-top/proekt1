@@ -8,7 +8,7 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(f"sqlite+aiosqlite:///{settings.database_path}")
+engine = create_async_engine(settings.sqlalchemy_url)
 session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

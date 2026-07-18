@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from wareon.db.base import session_factory
 from wareon.db.models import TableUpload
-from wareon.services import tables
+from wareon.services import ingest, tables
 
 router = Router(name="tables")
 
@@ -41,6 +41,7 @@ async def on_document(message: Message, bot: Bot) -> None:
         )
         return
 
+    ingest_note = ""
     if message.from_user:
         async with session_factory() as session:
             session.add(
@@ -52,10 +53,22 @@ async def on_document(message: Message, bot: Bot) -> None:
                 )
             )
             await session.commit()
+            # приёмка в «склад» — чтобы данные попали на дашборд
+            result = await ingest.ingest_dataframe(session, message.from_user.id, df)
+        if result.inserted:
+            cols = ", ".join(f"{role}→«{col}»" for role, col in result.mapping.items())
+            ingest_note = (
+                f"\n\n📥 Загрузил в аналитику: {result.inserted} строк. "
+                f"Распознал: {cols}.\nОткрой дашборд — цифры уже там."
+            )
+        elif result.error:
+            ingest_note = f"\n\nℹ️ На дашборд не попало: {result.error}"
+
     await message.answer(
         summary
         + "\n\n💬 Теперь можно спрашивать обычным текстом: "
         "«сумма выручки», «топ товаров по выручке», «какой товар принёс больше всего?»"
+        + ingest_note
     )
 
 
