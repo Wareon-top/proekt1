@@ -13,7 +13,7 @@ from wareon.api import schemas
 from wareon.api.auth import validate_init_data
 from wareon.config import settings
 from wareon.db.base import init_db, session_factory
-from wareon.services import reports
+from wareon.services import ai, reports
 
 
 @asynccontextmanager
@@ -52,6 +52,16 @@ async def current_user(
 @app.get("/api/health")
 async def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/brief", response_model=schemas.BriefResponse)
+async def brief(uid: int = Depends(current_user)) -> schemas.BriefResponse:
+    async with session_factory() as session:
+        s = await reports.sales_summary(session, uid, 7)
+        text = await ai.daily_brief(session, uid)
+    return schemas.BriefResponse(
+        enabled=settings.ai_enabled, has_data=s.orders > 0, text=text
+    )
 
 
 @app.get("/api/pulse", response_model=schemas.PulseResponse)

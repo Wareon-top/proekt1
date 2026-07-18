@@ -16,6 +16,12 @@ class SourceRevenue(BaseModel):
     revenue: float
 
 
+class BriefResponse(BaseModel):
+    enabled: bool     # подключён ли ИИ (есть ключ)
+    has_data: bool
+    text: str
+
+
 class PulseResponse(BaseModel):
     has_data: bool
     days: int

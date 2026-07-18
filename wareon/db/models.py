@@ -95,6 +95,19 @@ class ReportSubscription(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class AiBrief(Base):
+    """Кэш ежедневной ИИ-сводки: одна на пользователя в сутки — экономит токены."""
+
+    __tablename__ = "ai_briefs"
+    __table_args__ = (UniqueConstraint("user_tg_id", "day", name="uq_brief_user_day"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    day: Mapped[str] = mapped_column(String(10))  # YYYY-MM-DD (UTC)
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AlertSetting(Base):
     """Порог алерта по марже: предупреждаем, когда маржа за сутки ниже порога."""
 

@@ -13,10 +13,17 @@ class Settings(BaseSettings):
     webapp_url: str = ""
     # Разрешённые источники для API (CORS). Обычно — адрес дашборда.
     cors_origins: str = "*"
+    # Ключ Anthropic для ИИ-функций (сводка, ассистент). Пусто — ИИ выключен.
+    anthropic_api_key: str = ""
+    ai_model: str = "claude-opus-4-8"
 
     @property
     def webapp_enabled(self) -> bool:
         return self.webapp_url.startswith("https://")
+
+    @property
+    def ai_enabled(self) -> bool:
+        return bool(self.anthropic_api_key)
 
     @property
     def sqlalchemy_url(self) -> str:
