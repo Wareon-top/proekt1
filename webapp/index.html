@@ -140,6 +140,21 @@
   .foot{margin-top:30px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
         color:var(--dim);text-align:center;text-transform:uppercase}
 
+  /* ---- нижняя CTA (фолбэк MainButton вне Telegram) + тост ---- */
+  body.has-cta{padding-bottom:calc(env(safe-area-inset-bottom) + var(--tabbar) + 82px)}
+  .cta{position:fixed;left:0;right:0;bottom:calc(var(--tabbar) + env(safe-area-inset-bottom));
+     z-index:19;display:none;padding:0 var(--pad) 12px}
+  body.has-cta .cta{display:block}
+  .cta button{width:100%;max-width:460px;margin:0 auto;display:block;border:0;cursor:pointer;
+     background:var(--gold-grad);color:#1A1206;font-family:var(--sans);font-weight:700;font-size:15px;
+     letter-spacing:.01em;padding:15px;border-radius:13px;box-shadow:0 8px 22px rgba(214,180,98,.22)}
+  .toast{position:fixed;left:50%;bottom:calc(var(--tabbar) + 92px);
+     transform:translateX(-50%) translateY(12px);z-index:40;background:var(--panel-2);
+     border:1px solid var(--line);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.45;
+     padding:13px 17px;border-radius:13px;opacity:0;pointer-events:none;
+     transition:opacity .25s,transform .25s;max-width:86%;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
   /* ---- views ---- */
   .view{display:none}
   .view.on{display:block;animation:fade .35s ease}
@@ -346,6 +361,10 @@
   <div class="foot">Wareon Analytics · демо-данные</div>
 </div>
 
+<!-- ============ CTA (фолбэк MainButton) + тост ============ -->
+<div class="cta"><button id="ctaBtn" type="button">Отчёт за месяц</button></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <!-- ============ TAB BAR ============ -->
 <nav class="tabbar"><div class="in">
   <button class="tab on" data-tab="pulse">
@@ -362,14 +381,55 @@
 (function(){
   "use strict";
   var reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+  var tg = null;
+  try{ tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null; }catch(e){}
 
-  try{
-    var tg = window.Telegram && window.Telegram.WebApp;
-    if(tg){ tg.ready(); tg.expand();
-      if(tg.setHeaderColor) tg.setHeaderColor("#0A0908");
-      if(tg.setBackgroundColor) tg.setBackgroundColor("#0A0908");
-    }
-  }catch(e){}
+  function safe(fn){ try{ return fn(); }catch(e){} }
+
+  // тактильный отклик
+  function haptic(kind){
+    safe(function(){
+      if(!tg || !tg.HapticFeedback) return;
+      if(kind === "select") tg.HapticFeedback.selectionChanged();
+      else tg.HapticFeedback.impactOccurred(kind || "light");
+    });
+  }
+
+  // всплывающее уведомление (в браузере) / нативный попап (в Telegram)
+  var toastEl = document.getElementById("toast"), toastTimer;
+  function notify(msg){
+    if(tg && tg.showPopup) return safe(function(){ tg.showPopup({title:"Wareon", message:msg, buttons:[{type:"ok"}]}); });
+    if(tg && tg.showAlert) return safe(function(){ tg.showAlert(msg); });
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(function(){ toastEl.classList.remove("show"); }, 2800);
+  }
+
+  // подписи и действия нижней кнопки по вкладкам
+  var CTA = {pulse:"Отчёт за месяц", social:"Подключить канал", mp:"Проверить мою карточку", ai:"Спросить ИИ"};
+  var ACT = {
+    pulse:"Демо: полный отчёт за месяц с графиками и рекомендациями подключим к реальным данным.",
+    social:"Демо: добавьте бота в канал администратором — статистика появится здесь.",
+    mp:"Демо: пришлите обложку карточки — ИИ-аудит визуала уже в разработке.",
+    ai:"Демо: задайте вопрос по бизнесу — ИИ-мозг подключим на следующем шаге."
+  };
+  var currentTab = "pulse";
+  var ctaBtn = document.getElementById("ctaBtn");
+  function primaryAction(){ haptic("medium"); notify(ACT[currentTab]); }
+
+  // --- инициализация Telegram Mini App ---
+  if(tg){
+    safe(function(){ tg.ready(); });
+    safe(function(){ tg.expand(); });
+    safe(function(){ if(tg.requestFullscreen && tg.isVersionAtLeast && tg.isVersionAtLeast("8.0")) tg.requestFullscreen(); });
+    safe(function(){ if(tg.setHeaderColor) tg.setHeaderColor("#0A0908"); });
+    safe(function(){ if(tg.setBackgroundColor) tg.setBackgroundColor("#0A0908"); });
+    safe(function(){ if(tg.disableVerticalSwipes) tg.disableVerticalSwipes(); }); // не закрывать при скролле
+    safe(function(){ if(tg.MainButton){ tg.MainButton.setParams({color:"#D6B462", text_color:"#1A1206", is_active:true}); tg.MainButton.onClick(primaryAction); } });
+    safe(function(){ if(tg.BackButton) tg.BackButton.onClick(function(){ haptic("select"); setTab("pulse"); }); });
+  } else {
+    document.body.classList.add("has-cta");
+    ctaBtn.addEventListener("click", primaryAction);
+  }
 
   var NBSP = " ";
   function fmt(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, NBSP); }
@@ -426,29 +486,35 @@
       setTimeout(function(){ setInterval(function(){ v+=120+Math.floor(Math.random()*680); net.textContent=fmt(v); },4200); },1400);
     }
   }
-  initView("pulse");
-
-  // переключение вкладок
-  var tabs=document.querySelectorAll(".tab"), views=document.querySelectorAll(".view");
+  // --- переключение вкладок + нативные кнопки ---
+  var tabs = document.querySelectorAll(".tab"), views = document.querySelectorAll(".view");
+  function setTab(name){
+    currentTab = name;
+    tabs.forEach(function(t){ t.classList.toggle("on", t.dataset.tab === name); });
+    views.forEach(function(v){ v.classList.toggle("on", v.dataset.view === name); });
+    initView(name);
+    window.scrollTo(0, 0);
+    // нижняя кнопка: нативная в Telegram, DOM-фолбэк в браузере
+    if(tg && tg.MainButton) safe(function(){ tg.MainButton.setText(CTA[name]); tg.MainButton.show(); });
+    else ctaBtn.textContent = CTA[name];
+    // системная «Назад» — на всех вкладках, кроме домашней
+    if(tg && tg.BackButton) safe(function(){ name === "pulse" ? tg.BackButton.hide() : tg.BackButton.show(); });
+  }
   tabs.forEach(function(tab){
-    tab.addEventListener("click",function(){
-      var name=tab.dataset.tab;
-      tabs.forEach(function(t){ t.classList.toggle("on", t===tab); });
-      views.forEach(function(v){ v.classList.toggle("on", v.dataset.view===name); });
-      initView(name);
-      window.scrollTo(0,0);
-      try{ if(window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged(); }catch(e){}
-    });
+    tab.addEventListener("click", function(){ haptic("select"); setTab(tab.dataset.tab); });
   });
 
   // тумблер Просто / Pro
-  var s=document.getElementById("mSimple"), p=document.getElementById("mPro");
+  var s = document.getElementById("mSimple"), p = document.getElementById("mPro");
   function mode(pro){
-    document.body.classList.toggle("pro",pro);
-    p.classList.toggle("on",pro); s.classList.toggle("on",!pro);
-    p.setAttribute("aria-selected",pro); s.setAttribute("aria-selected",!pro);
+    haptic("select");
+    document.body.classList.toggle("pro", pro);
+    p.classList.toggle("on", pro); s.classList.toggle("on", !pro);
+    p.setAttribute("aria-selected", pro); s.setAttribute("aria-selected", !pro);
   }
-  s.onclick=function(){mode(false);}; p.onclick=function(){mode(true);};
+  s.onclick = function(){ mode(false); }; p.onclick = function(){ mode(true); };
+
+  setTab("pulse");
 })();
 </script>
 </body>
