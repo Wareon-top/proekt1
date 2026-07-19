@@ -42,7 +42,8 @@ class TestFormatPanel:
             metrics=[
                 MetricValue("revenue", "Выручка", "₽", "finance", 12000, 4800, 150.0, STATUS_GROWTH),
                 MetricValue("cost", "Себестоимость", "₽", "finance", 4200, 3000, 40.0, STATUS_BOTTLENECK),
-                MetricValue("drr_pct", "ДРР", "%", "marketing", None, None, None, STATUS_NA),
+                MetricValue("drr_pct", "ДРР", "%", "marketing", 25.0, 40.0, -37.5, STATUS_GROWTH),
+                MetricValue("cac", "CAC", "₽", "clients", None, None, None, STATUS_NA),
                 MetricValue("mine", "Моя метрика", "%", "custom", 20.0, 10.0, 100.0, STATUS_GROWTH, custom=True),
             ],
             forecast_revenue=19200.0,
@@ -50,18 +51,24 @@ class TestFormatPanel:
 
     def test_contains_title_and_areas(self):
         text = format_panel(self._panel())
-        assert "Пульт за 7 дн" in text
+        assert "Пульт · 7 дн" in text
         assert "Финансы" in text
         assert "Маркетинг" in text
+
+    def test_has_verdict_line(self):
+        # есть и рост, и узкое место → соответствующий вердикт
+        text = format_panel(self._panel())
+        assert "Растёшь" in text
 
     def test_growth_and_bottleneck_sections(self):
         text = format_panel(self._panel())
         assert "Точки роста" in text and "Выручка" in text
         assert "Узкие места" in text and "Себестоимость" in text
 
-    def test_na_shown(self):
+    def test_na_metrics_hidden_with_hint(self):
         text = format_panel(self._panel())
-        assert "нет данных" in text
+        assert "нет данных" not in text          # пустые метрики скрыты
+        assert "ждут данных" in text             # но есть подсказка, как их включить
 
     def test_custom_tag_and_forecast(self):
         text = format_panel(self._panel())

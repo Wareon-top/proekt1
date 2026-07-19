@@ -32,8 +32,14 @@ PULSE_HELP = (
     "<code>/pulse</code> — за 7 дней\n"
     "<code>/pulse 30</code> — за 30 дней\n"
     "<code>/pulse 7 ad=3000 visitors=900</code> — донести рекламу и визиты "
-    "(для ДРР, ROMI, конверсии)\n\n"
-    "Нет продаж? Добавьте: <code>/sale 15000 8000</code>"
+    "(для ДРР, ROMI, конверсии)"
+)
+
+PULSE_EMPTY = (
+    "🎛 <b>Пульт</b>\n\n"
+    "Данных пока нет. Дай мне первую цифру — и я сразу покажу, где ты растёшь "
+    "и где теряешь.\n\n"
+    "➕ Запиши продажу: <code>/sale 15000 8000</code>"
 )
 
 
@@ -71,17 +77,36 @@ def _fmt_trend(trend_pct: float | None) -> str:
     return f"  {arrow}{abs(trend_pct):.0f}%"
 
 
-def format_panel(panel: Panel) -> str:
-    lines = [f"🎛 <b>Пульт за {panel.days} дн</b>  <i>(vs прошлые {panel.days} дн)</i>\n"]
+def panel_verdict(panel: Panel) -> str:
+    """Короткий вердикт по пульту одной строкой (правило, без вызова ИИ)."""
+    growth, bottleneck = bool(panel.growth_points), bool(panel.bottlenecks)
+    if growth and bottleneck:
+        return "📈 Растёшь — но есть узкие места."
+    if growth:
+        return "📈 Бизнес идёт в рост."
+    if bottleneck:
+        return "⚠️ Есть, что подтянуть."
+    return "▪️ Пока ровно — мало данных для выводов."
 
-    # Группируем по областям в порядке появления.
+
+def format_panel(panel: Panel) -> str:
+    lines = [
+        f"🎛 <b>Пульт · {panel.days} дн</b>  <i>(vs прошлые {panel.days})</i>",
+        panel_verdict(panel) + "\n",
+    ]
+
+    # Показываем только посчитанные метрики — «нет данных» скрываем, чтобы не
+    # засорять экран (донести рекламу/визиты можно через /pulse ad=.. visitors=..).
+    visible = [m for m in panel.metrics if m.value is not None]
+    hidden = len(panel.metrics) - len(visible)
+
     order: list[str] = []
-    for m in panel.metrics:
+    for m in visible:
         if m.area not in order:
             order.append(m.area)
     for area in order:
         lines.append(f"<b>{AREA_TITLES.get(area, area)}</b>")
-        for m in (x for x in panel.metrics if x.area == area):
+        for m in (x for x in visible if x.area == area):
             icon = _STATUS_ICON.get(m.status, "▪️")
             tag = " 🤖" if m.custom else ""
             lines.append(f"{icon} {m.title}: {_fmt_value(m.value, m.unit)}{_fmt_trend(m.trend_pct)}{tag}")
@@ -97,6 +122,11 @@ def format_panel(panel: Panel) -> str:
         lines.append(
             f"\n🔮 Прогноз выручки на следующие {panel.days} дн: "
             f"~{panel.forecast_revenue:,.0f} ₽".replace(",", " ")
+        )
+    if hidden:
+        lines.append(
+            f"\n<i>Ещё {hidden} метрик ждут данных о рекламе/визитах — "
+            f"донести: <code>/pulse {panel.days} ad=3000 visitors=900</code></i>"
         )
     return "\n".join(lines).strip()
 
@@ -117,9 +147,7 @@ async def cmd_pulse(message: Message, command: CommandObject) -> None:
     # Есть ли вообще продажи в периоде (по выручке).
     revenue = next((m for m in panel.metrics if m.key == "revenue"), None)
     if revenue is None or not revenue.value:
-        await message.answer(
-            f"За {days} дн продаж не найдено.\n\n" + PULSE_HELP
-        )
+        await message.answer(PULSE_EMPTY)
         return
 
     await message.answer(format_panel(panel))

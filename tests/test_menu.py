@@ -34,3 +34,9 @@ def test_settings_marks_current_level():
 
 def test_back_menu():
     assert "menu:main" in _datas(keyboards.back_menu())
+
+
+def test_onboarding_keyboards():
+    assert "onb:features" in _datas(keyboards.onboarding_kb())
+    assert "menu:main" in _datas(keyboards.onboarding_kb())
+    assert "menu:main" in _datas(keyboards.features_kb())

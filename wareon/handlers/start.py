@@ -1,5 +1,5 @@
 from aiogram import F, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 
@@ -8,7 +8,9 @@ from wareon.db.base import session_factory
 from wareon.db.models import User
 from wareon.keyboards import (
     back_menu,
+    features_kb,
     main_menu,
+    onboarding_kb,
     panel_period_kb,
     report_kb,
     settings_kb,
@@ -18,52 +20,70 @@ from wareon.services.metrics import build_panel
 
 router = Router(name="start")
 
-WELCOME = (
-    "👋 Я <b>Wareon</b> — ИИ бизнес-ассистент.\n\n"
-    "Вижу твои цифры, нахожу <b>точки роста</b> и <b>узкие места</b>, подсказываю "
-    "и действую. Таблицы — лишь наглядная подача; во главе — ИИ.\n\n"
-    "Жми кнопки ниже — или просто напиши мне вопрос."
+# ── Тексты (единый голос: коротко, на «ты», по делу) ─────────────────────────
+MENU = (
+    "<b>Wareon</b> — ИИ-ассистент твоего бизнеса.\n"
+    "Вижу цифры, нахожу рост и узкие места, подсказываю шаг.\n\n"
+    "Выбирай 👇"
 )
 
 DASHBOARD_HINT = "\n\n✨ «Открыть дашборд» — вся глубина в одном экране."
 
 
 def welcome_text() -> str:
-    return WELCOME + (DASHBOARD_HINT if settings.webapp_enabled else "")
+    return MENU + (DASHBOARD_HINT if settings.webapp_enabled else "")
 
+
+ONBOARDING = (
+    "👋 Привет! Я <b>Wareon</b> — твой ИИ бизнес-ассистент.\n\n"
+    "Я не «ещё одна табличка». Я смотрю на твои цифры, сам нахожу "
+    "<b>точки роста</b> и <b>узкие места</b> и говорю, что делать — прямо здесь, "
+    "в Telegram.\n\n"
+    "Познакомимся за минуту?"
+)
+
+FEATURES = (
+    "<b>Что я умею</b>\n\n"
+    "🎛 <b>Пульт</b> — вся аналитика: прибыль, маржа, тренды, прогноз.\n"
+    "🧠 <b>Ассистент</b> — спроси что угодно, разберу твои данные и подскажу.\n"
+    "🧮 <b>Калькуляторы</b> — юнит-экономика, ROI, зарплаты за пару кликов.\n"
+    "📋 <b>Отчёты</b> — регулярные сводки и алерты по марже.\n"
+    "📣 <b>Соцсети</b> — статистика каналов и групп.\n\n"
+    "Чем больше данных дашь — тем точнее веду. Начнём с первой цифры."
+)
 
 AGENT_CARD = (
     "🧠 <b>Ассистент</b>\n\n"
-    "Задай вопрос или дай задачу — я посмотрю данные, найду точки роста и узкие "
-    "места, при надобности заведу метрику.\n\n"
-    "<code>/agent как дела с бизнесом за неделю?</code>\n"
-    "<code>/agent заведи метрику доли рекламы</code>\n\n"
-    "Можно и без команды — просто напиши мне сообщение."
+    "Задай вопрос или дай задачу — посмотрю данные и отвечу по делу.\n\n"
+    "<i>Например:</i>\n"
+    "• как дела за неделю?\n"
+    "• где я теряю деньги?\n"
+    "• заведи метрику доли рекламы\n\n"
+    "Пиши <code>/agent …</code> — или просто сообщением."
 )
 
 SALE_CARD = (
     "➕ <b>Записать продажу</b>\n\n"
-    "<code>/sale выручка [себестоимость] [источник]</code>\n"
-    "Например: <code>/sale 15000 8000 сайт</code>\n\n"
-    "После пары продаж жми 🎛 <b>Пульт</b> — увижу тренды и подскажу."
+    "<code>/sale выручка себестоимость источник</code>\n"
+    "Пример: <code>/sale 15000 8000 сайт</code>\n\n"
+    "Пару продаж — и жми 🎛 <b>Пульт</b>, покажу тренды."
 )
 
 SECTION_HELP = {
     "social": (
-        "📣 <b>Аналитика соцсетей</b>\n\n"
-        "1. Добавь меня в канал или группу администратором\n"
-        "2. Я начну собирать статистику: сообщения, посты, подписки, отписки\n"
-        "3. В группе — команда <code>/stats</code>\n"
-        "4. Здесь, в личке — <code>/channels</code>, список подключённых чатов\n\n"
-        "Подключение других соцсетей — слой развития."
+        "📣 <b>Соцсети</b>\n\n"
+        "Добавь меня в канал или группу администратором — начну считать посты, "
+        "сообщения, подписки и отписки.\n\n"
+        "• В группе — <code>/stats</code>\n"
+        "• Здесь — <code>/channels</code>, список подключённых чатов\n\n"
+        "<i>Другие соцсети — на подходе.</i>"
     ),
     "tables": (
         "📑 <b>Умные таблицы</b>\n\n"
         "Пришли файл <b>.xlsx</b> или <b>.csv</b> — разберу структуру, посчитаю "
-        "суммы и средние, найду топ-категории и пустые ячейки.\n\n"
-        "Потом задавай вопросы обычным текстом:\n"
-        "• «сумма выручки»\n• «топ товаров по выручке»\n\n"
-        "<code>/tables</code> — история загруженных таблиц"
+        "суммы и средние, найду топ и пустые ячейки.\n\n"
+        "Потом спрашивай текстом: «сумма выручки», «топ товаров».\n\n"
+        "<code>/tables</code> — история загрузок"
     ),
 }
 
@@ -83,15 +103,31 @@ async def _edit(callback: CallbackQuery, text: str, markup) -> None:
     await callback.answer()
 
 
+# ── /start и онбординг ────────────────────────────────────────────────────────
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
+    is_new = True
     if message.from_user:
         async with session_factory() as session:
             exists = await session.scalar(select(User).where(User.tg_id == message.from_user.id))
-            if not exists:
+            is_new = exists is None
+            if is_new:
                 session.add(User(tg_id=message.from_user.id, username=message.from_user.username))
                 await session.commit()
-    await message.answer(welcome_text(), reply_markup=main_menu())
+    if is_new:
+        await message.answer(ONBOARDING, reply_markup=onboarding_kb())
+    else:
+        await message.answer(welcome_text(), reply_markup=main_menu())
+
+
+@router.message(Command("help"))
+async def cmd_help(message: Message) -> None:
+    await message.answer(FEATURES, reply_markup=main_menu())
+
+
+@router.callback_query(F.data == "onb:features")
+async def cb_features(callback: CallbackQuery) -> None:
+    await _edit(callback, FEATURES, features_kb())
 
 
 @router.callback_query(F.data == "menu:main")
@@ -111,20 +147,14 @@ async def cb_sale_card(callback: CallbackQuery) -> None:
 
 # ── Пульт прямо в меню ────────────────────────────────────────────────────────
 async def _render_panel(callback: CallbackQuery, days: int) -> None:
-    from wareon.handlers.pulse import format_panel
+    from wareon.handlers.pulse import PULSE_EMPTY, format_panel
 
     if callback.from_user is None:
         return
     async with session_factory() as session:
         panel = await build_panel(session, callback.from_user.id, days=days)
     revenue = next((m for m in panel.metrics if m.key == "revenue"), None)
-    if revenue is None or not revenue.value:
-        text = (
-            f"🎛 <b>Пульт</b>\n\nЗа {days} дн продаж нет.\n"
-            "Добавь продажу: <code>/sale 15000 8000</code>"
-        )
-    else:
-        text = format_panel(panel)
+    text = PULSE_EMPTY if (revenue is None or not revenue.value) else format_panel(panel)
     await _edit(callback, text, panel_period_kb())
 
 
@@ -150,15 +180,15 @@ async def _render_report(callback: CallbackQuery, days: int) -> None:
         summary = await reports.sales_summary(session, callback.from_user.id, days)
     if summary.orders == 0:
         text = (
-            f"📋 <b>Отчёт</b>\n\nЗа {days} дн продаж нет.\n"
-            "Добавь продажу: <code>/sale 15000 8000</code>"
+            "📋 <b>Отчёт</b>\n\nПродаж пока нет. Запиши первую — "
+            "и я соберу сводку.\n\n➕ <code>/sale 15000 8000</code>"
         )
     else:
-        text = f"📋 <b>Отчёт за {days} дн</b>\n\n{reports.format_summary(summary)}"
-    text += (
-        "\n\nАвто-отчёты: <code>/subscribe daily 09:00</code>, "
-        "алерт по марже: <code>/alert 20</code>"
-    )
+        text = (
+            f"📋 <b>Отчёт · {days} дн</b>\n\n{reports.format_summary(summary)}\n\n"
+            "🗓 Авто-сводки: <code>/subscribe daily 09:00</code> · "
+            "алерт: <code>/alert 20</code>"
+        )
     await _edit(callback, text, report_kb())
 
 
@@ -180,9 +210,9 @@ async def cb_report_period(callback: CallbackQuery) -> None:
 def _settings_text(level: str) -> str:
     return (
         "⚙️ <b>Настройки</b>\n\n"
-        "<b>Автономия ИИ</b> — насколько ассистент действует сам:\n"
-        f"Сейчас: <b>{AUTONOMY_TITLES.get(level, level)}</b>\n\n"
-        "Ещё: <code>/alert 20</code> — алерт по марже, "
+        "<b>Автономия ассистента</b> — насколько я действую сам:\n"
+        f"Сейчас — <b>{AUTONOMY_TITLES.get(level, level)}</b>\n\n"
+        "Ещё: <code>/alert 20</code> — алерт по марже · "
         "<code>/subscribe</code> — регулярные отчёты."
     )
 

@@ -27,6 +27,19 @@ def back_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[_btn("⬅️ В меню", "menu:main")]])
 
 
+def onboarding_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("▶️ Что ты умеешь", "onb:features")],
+            [_btn("🚀 Начать", "menu:main")],
+        ]
+    )
+
+
+def features_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[_btn("🚀 Начать", "menu:main")]])
+
+
 # Совместимость со старым импортом.
 BACK_TO_MENU = back_menu()
 

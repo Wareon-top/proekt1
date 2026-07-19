@@ -15,6 +15,7 @@ BOT_COMMANDS = [
     BotCommand(command="autonomy", description="⚙️ Автономия ИИ"),
     BotCommand(command="subscribe", description="🗓 Регулярные отчёты"),
     BotCommand(command="alert", description="⚠️ Алерт по марже"),
+    BotCommand(command="help", description="ℹ️ Что я умею"),
 ]
 
 from wareon.config import settings
