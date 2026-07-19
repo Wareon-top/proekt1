@@ -108,6 +108,28 @@ class AiBrief(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class CustomMetric(Base):
+    """Кастомная метрика клиента: формула из «кирпичиков» над данными.
+
+    Формула — безопасное арифметическое выражение над базовыми переменными
+    (revenue, cost, orders, ...), проверяется движком формул. Может завести как
+    человек, так и ИИ-ассистент (created_by)."""
+
+    __tablename__ = "custom_metrics"
+    __table_args__ = (UniqueConstraint("user_tg_id", "key", name="uq_metric_user_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    key: Mapped[str] = mapped_column(String(48))  # машинный идентификатор
+    title: Mapped[str] = mapped_column(String(128))
+    expression: Mapped[str] = mapped_column(String(256))
+    unit: Mapped[str] = mapped_column(String(16), default="")
+    direction: Mapped[str] = mapped_column(String(8), default="up")  # up | down | neutral
+    area: Mapped[str] = mapped_column(String(24), default="custom")
+    created_by: Mapped[str] = mapped_column(String(8), default="user")  # user | ai
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AlertSetting(Base):
     """Порог алерта по марже: предупреждаем, когда маржа за сутки ниже порога."""
 

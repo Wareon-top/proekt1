@@ -2,10 +2,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # Переменные и токены кладём в data/.env (папка data — в .gitignore, секреты не
+    # утекут). Корневой .env поддерживается для совместимости; data/.env приоритетнее.
+    model_config = SettingsConfigDict(
+        env_file=(".env", "data/.env"), env_file_encoding="utf-8", extra="ignore"
+    )
 
     bot_token: str = ""
-    database_path: str = "wareon.db"
+    database_path: str = "data/wareon.db"
     # Полный адрес БД. Пусто — берётся SQLite по database_path.
     # Для продакшена: postgresql+asyncpg://user:pass@host/db
     database_url: str = ""
