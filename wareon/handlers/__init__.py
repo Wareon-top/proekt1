@@ -4,6 +4,7 @@ from wareon.handlers import (
     ai,
     business,
     marketplace,
+    pulse,
     qa,
     reports,
     schedule,
@@ -21,6 +22,7 @@ def setup_routers(dp: Dispatcher) -> None:
     dp.include_router(tables.router)
     dp.include_router(reports.router)
     dp.include_router(schedule.router)
+    dp.include_router(pulse.router)
     dp.include_router(ai.router)
     # qa — последним: перехватывает весь прочий текст в личке как вопрос к таблице
     dp.include_router(qa.router)
