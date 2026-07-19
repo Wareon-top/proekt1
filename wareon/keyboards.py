@@ -17,8 +17,8 @@ def main_menu() -> InlineKeyboardMarkup:
     rows += [
         [_btn("🧠 Ассистент", "menu:agent"), _btn("🎛 Пульт", "menu:pulse")],
         [_btn("➕ Продажа", "menu:sale"), _btn("📋 Отчёт", "menu:report")],
-        [_btn("📣 Соцсети", "menu:social"), _btn("🛍 Маркетплейс", "menu:marketplace")],
-        [_btn("📑 Таблицы", "menu:tables"), _btn("⚙️ Настройки", "menu:settings")],
+        [_btn("🧮 Калькуляторы", "menu:calc"), _btn("📑 Таблицы", "menu:tables")],
+        [_btn("📣 Соцсети", "menu:social"), _btn("⚙️ Настройки", "menu:settings")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

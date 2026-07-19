@@ -57,15 +57,6 @@ SECTION_HELP = {
         "4. Здесь, в личке — <code>/channels</code>, список подключённых чатов\n\n"
         "Подключение других соцсетей — слой развития."
     ),
-    "marketplace": (
-        "🛍 <b>Аналитика маркетплейсов</b>\n\n"
-        "Для дизайнеров карточек и менеджеров:\n"
-        "<code>/card 50000 2500 400 120</code> — воронка карточки "
-        "(показы, клики, корзины, заказы)\n"
-        "<code>/card 50000 2500 400 120 30000 180000</code> — то же + ДРР\n"
-        "<code>/unit 1500 20 80 600 50</code> — юнит-экономика "
-        "(цена, комиссия %, логистика, себестоимость, реклама на ед.)"
-    ),
     "tables": (
         "📑 <b>Умные таблицы</b>\n\n"
         "Пришли файл <b>.xlsx</b> или <b>.csv</b> — разберу структуру, посчитаю "
@@ -218,8 +209,8 @@ async def cb_set_autonomy(callback: CallbackQuery) -> None:
     await _edit(callback, _settings_text(level), settings_kb(level))
 
 
-# ── Разделы-справки (соцсети, маркетплейс, таблицы) ───────────────────────────
-@router.callback_query(F.data.startswith("menu:"))
+# ── Разделы-справки (соцсети, таблицы) ────────────────────────────────────────
+@router.callback_query(F.data.in_({"menu:social", "menu:tables"}))
 async def cb_section(callback: CallbackQuery) -> None:
     section = (callback.data or "").split(":", 1)[1]
     text = SECTION_HELP.get(section)
