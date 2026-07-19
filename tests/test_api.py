@@ -52,3 +52,65 @@ def test_pulse_empty_user(client):
     r = client.get("/api/pulse", params={"dev_user_id": 999999})
     assert r.status_code == 200
     assert r.json()["has_data"] is False
+
+
+def test_panel_returns_metrics(client):
+    uid = 777010
+    asyncio.run(_seed(uid))
+    r = client.get("/api/panel", params={"dev_user_id": uid, "days": 30})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["has_data"] is True
+    keys = {m["key"] for m in data["metrics"]}
+    assert {"revenue", "profit", "margin_pct"} <= keys
+    rev = next(m for m in data["metrics"] if m["key"] == "revenue")
+    assert rev["value"] == 3800.0
+    assert rev["unit"] == "₽"
+
+
+def test_panel_empty_user(client):
+    r = client.get("/api/panel", params={"dev_user_id": 888888})
+    assert r.status_code == 200
+    assert r.json()["has_data"] is False
+
+
+def test_panel_requires_auth(client):
+    assert client.get("/api/panel").status_code == 401
+
+
+def test_chat_disabled_without_key(client):
+    # bot_token пуст в тестах → ai_enabled False
+    r = client.post("/api/chat", params={"dev_user_id": 777011}, json={"message": "привет"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["enabled"] is False
+
+
+def test_chat_runs_agent(client, monkeypatch):
+    from wareon.config import settings
+    from wareon.services import agent
+
+    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+
+    async def fake_run(session, uid, message):
+        return agent.AgentResult(text="Смотрю пульт: всё ок.", actions=["завёл метрику «X»"])
+
+    monkeypatch.setattr(agent, "run_agent", fake_run)
+
+    r = client.post("/api/chat", params={"dev_user_id": 777012}, json={"message": "как дела"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["enabled"] is True
+    assert "пульт" in body["text"]
+    assert body["actions"] == ["завёл метрику «X»"]
+
+
+def test_chat_rejects_empty(client):
+    from wareon.config import settings
+
+    settings_key = settings.anthropic_api_key
+    try:
+        r = client.post("/api/chat", params={"dev_user_id": 777013}, json={"message": "  "})
+        assert r.status_code == 400
+    finally:
+        settings.anthropic_api_key = settings_key

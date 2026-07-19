@@ -13,7 +13,8 @@ from wareon.api import schemas
 from wareon.api.auth import validate_init_data
 from wareon.config import settings
 from wareon.db.base import init_db, session_factory
-from wareon.services import ai, reports
+from wareon.services import agent, ai, reports
+from wareon.services.metrics import build_panel
 
 
 @asynccontextmanager
@@ -27,7 +28,7 @@ app = FastAPI(title="Wareon Analytics API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -62,6 +63,49 @@ async def brief(uid: int = Depends(current_user)) -> schemas.BriefResponse:
     return schemas.BriefResponse(
         enabled=settings.ai_enabled, has_data=s.orders > 0, text=text
     )
+
+
+@app.get("/api/panel", response_model=schemas.PanelResponse)
+async def panel(days: int = 7, uid: int = Depends(current_user)) -> schemas.PanelResponse:
+    """Пульт метрик: движок метрик со всеми трендами и статусами (ИИ-первый экран)."""
+    days = max(1, min(days, 365))
+    async with session_factory() as session:
+        p = await build_panel(session, uid, days=days)
+    revenue = next((m for m in p.metrics if m.key == "revenue"), None)
+    return schemas.PanelResponse(
+        has_data=bool(revenue and revenue.value),
+        days=p.days,
+        forecast_revenue=p.forecast_revenue,
+        growth_points=[m.title for m in p.growth_points],
+        bottlenecks=[m.title for m in p.bottlenecks],
+        metrics=[
+            schemas.MetricOut(
+                key=m.key,
+                title=m.title,
+                unit=m.unit,
+                area=m.area,
+                value=m.value,
+                prev=m.prev,
+                trend_pct=m.trend_pct,
+                status=m.status,
+                custom=m.custom,
+            )
+            for m in p.metrics
+        ],
+    )
+
+
+@app.post("/api/chat", response_model=schemas.ChatResponse)
+async def chat(req: schemas.ChatRequest, uid: int = Depends(current_user)) -> schemas.ChatResponse:
+    """Живой чат с ИИ-оркестратором — тот же ассистент, что и в боте."""
+    message = (req.message or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Пустое сообщение")
+    if not settings.ai_enabled:
+        return schemas.ChatResponse(enabled=False, text=ai.DISABLED_MSG)
+    async with session_factory() as session:
+        result = await agent.run_agent(session, uid, message)
+    return schemas.ChatResponse(enabled=True, text=result.text, actions=result.actions)
 
 
 @app.get("/api/pulse", response_model=schemas.PulseResponse)

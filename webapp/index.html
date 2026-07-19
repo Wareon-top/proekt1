@@ -1,605 +1,257 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>Wareon Analytics</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Wareon — ИИ бизнес-ассистент</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Адрес «склада данных» (API). Впишите после деплоя бэкенда, напр.
-     "https://wareon-api.onrender.com". Пусто → дашборд показывает демо-цифры. -->
-<script>window.WAREON_API = "";</script>
 <style>
   :root{
-    --bg:#0A0908; --panel:#141210; --panel-2:#181510;
-    --line:rgba(214,180,98,.18); --line-soft:rgba(255,255,255,.05);
-    --ink:#F4F1E9; --muted:#8B8272; --dim:#514A3B;
-    --acc:#D6B462; --acc-soft:rgba(214,180,98,.11); --loss:#C07A6E;
-    --gold-grad:linear-gradient(105deg,#F3E3B0,#D6B462 44%,#A87C2C);
-    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
-    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-    --pad:20px; --tabbar:66px;
+    --bg:#0b0b0d; --card:#141418; --card2:#1b1b21; --line:#26262e;
+    --txt:#f4f2ec; --dim:#9b9aa4; --gold:#d9b45b; --gold2:#f0d488;
+    --green:#4fbf7a; --red:#e2695f; --flat:#6d6d78;
   }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{background:var(--bg);color:var(--ink)}
-  body{
-    font-family:var(--sans);-webkit-font-smoothing:antialiased;
-    padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + var(--tabbar) + 20px);
-    min-height:100vh;
-  }
-  .wrap{max-width:460px;margin:0 auto;padding:0 var(--pad)}
-
-  /* ---- top bar ---- */
-  .top{display:flex;align-items:center;justify-content:space-between;
-       padding:18px 0 20px;position:sticky;top:0;background:linear-gradient(var(--bg) 72%,transparent);z-index:5}
-  .brand{font-family:var(--mono);font-weight:700;letter-spacing:.34em;font-size:13px}
-  .brand b{background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .brand span{color:var(--dim)}
-  .toggle{display:inline-flex;font-family:var(--mono);font-size:11px;letter-spacing:.12em;
-          border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--panel)}
-  .toggle button{font:inherit;letter-spacing:inherit;color:var(--muted);background:none;border:0;
-          padding:7px 13px;cursor:pointer;transition:color .2s}
-  .toggle button.on{color:var(--bg);background:var(--acc)}
-
-  /* ---- shared ---- */
-  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.34em;color:var(--muted);
-           text-transform:uppercase;display:flex;align-items:center;gap:9px}
-  .eyebrow.dot::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--acc);
-           box-shadow:0 0 0 0 var(--acc);animation:beat 2.4s infinite}
-  @keyframes beat{0%{box-shadow:0 0 0 0 rgba(214,180,98,.5)}70%{box-shadow:0 0 0 7px rgba(214,180,98,0)}100%{box-shadow:0 0 0 0 rgba(214,180,98,0)}}
-  .hero{padding:14px 0 6px}
-  .figure{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums;
-          font-size:clamp(48px,16vw,76px);line-height:.94;letter-spacing:-.03em;
-          display:flex;align-items:baseline;gap:.12em}
-  .figure .cur{background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;
-          color:transparent;font-size:.42em;font-weight:600;transform:translateY(-.7em)}
-  .figure .un{font-size:.32em;color:var(--muted);font-weight:500;letter-spacing:0}
-  .sub{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--muted);margin-top:12px}
-  .delta{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:13px;
-         font-weight:600;color:var(--acc);margin-top:9px}
-  .delta.neg{color:var(--loss)}
-  .delta .ar{font-size:10px}
-
-  section{margin-top:28px}
-  .label{font-family:var(--mono);font-size:11px;letter-spacing:.24em;color:var(--muted);
-         text-transform:uppercase;margin-bottom:14px;display:flex;justify-content:space-between}
-  .label span{color:var(--dim)}
-
-  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  .tile{background:var(--panel);border:1px solid var(--line-soft);border-radius:14px;padding:15px 14px}
-  .tile .k{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
-  .tile .v{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums;font-size:21px;
-           margin-top:11px;letter-spacing:-.01em}
-  .tile .u{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:3px}
-  .tile.acc .v{color:var(--acc)}
-
-  .row{display:flex;align-items:center;gap:14px;padding:13px 0;border-top:1px solid var(--line-soft)}
-  .row:first-child{border-top:0}
-  .rk{font-family:var(--mono);font-size:12px;color:var(--dim);width:14px;flex:none}
-  .nm{font-size:15px;font-weight:500;flex:1;letter-spacing:-.01em}
-  .nm small{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:.02em}
-  .val{font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums;font-size:14px;
-       display:inline-flex;align-items:center;gap:6px;color:var(--acc);text-align:right}
-  .val.neg{color:var(--loss)}
-  .val.ink{color:var(--ink)}
-  .val .ar{font-size:10px}
-
-  /* ---- pulse signature ---- */
-  .pulse{position:relative;height:74px;margin:16px 0 4px;overflow:hidden;
-         -webkit-mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
-                 mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
-  .pulse svg{position:absolute;top:0;left:0;height:100%;display:block}
-  .pulse polyline{fill:none;stroke:var(--acc);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;
-         filter:drop-shadow(0 0 6px rgba(214,180,98,.5))}
-
-  /* ---- day bars ---- */
-  .bars{display:flex;align-items:flex-end;gap:6px;height:104px}
-  .bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
-  .bar i{width:100%;background:var(--acc-soft);border-radius:5px 5px 0 0;min-height:4px;display:block;
-         transition:height .7s cubic-bezier(.2,.8,.2,1)}
-  .bar.max i{background:var(--gold-grad);box-shadow:0 0 14px rgba(214,180,98,.35)}
-  .bar b{font-family:var(--mono);font-size:10px;color:var(--dim);font-weight:400;letter-spacing:.04em}
-
-  /* ---- area sparkline (соцсети) ---- */
-  .area{height:96px;margin:14px 0 2px}
-  .area svg{width:100%;height:100%;display:block;overflow:visible}
-  .area .ln{fill:none;stroke:var(--acc);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;
-        filter:drop-shadow(0 0 5px rgba(214,180,98,.4))}
-  .area .fl{fill:url(#gold);opacity:.9}
-
-  /* ---- funnel (маркетплейсы) ---- */
-  .fn{display:flex;flex-direction:column;gap:9px}
-  .fn .st{display:flex;align-items:center;gap:12px}
-  .fn .track{flex:1;height:34px;background:var(--panel);border-radius:9px;overflow:hidden;position:relative}
-  .fn .fill{height:100%;background:var(--gold-grad);border-radius:9px;display:flex;align-items:center;
-        padding-left:12px;min-width:64px}
-  .fn .fill.dim{background:var(--acc-soft)}
-  .fn .p-k{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--bg);font-weight:700;text-transform:uppercase}
-  .fn .fill.dim .p-k{color:var(--muted)}
-  .fn .pv{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ink);width:56px;text-align:right;flex:none}
-
-  /* ---- audit checklist ---- */
-  .chk{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-top:1px solid var(--line-soft)}
-  .chk:first-child{border-top:0}
-  .chk .ic{width:22px;height:22px;border-radius:6px;flex:none;display:grid;place-items:center;
-        font-family:var(--mono);font-size:12px;font-weight:700}
-  .chk .ic.ok{background:var(--acc-soft);color:var(--acc)}
-  .chk .ic.warn{background:rgba(192,122,110,.14);color:var(--loss)}
-  .chk .ct{flex:1}
-  .chk .ct b{font-weight:500;font-size:14px;letter-spacing:-.01em}
-  .chk .ct small{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px}
-
-  /* ---- AI recipe cards ---- */
-  .brief{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;position:relative}
-  .brief .q{font-size:15px;line-height:1.55;letter-spacing:-.01em}
-  .brief .q b{color:var(--acc);font-weight:600}
-  .recipe{background:var(--panel);border:1px solid var(--line-soft);border-radius:16px;padding:17px;margin-top:12px}
-  .recipe .re{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--acc);text-transform:uppercase}
-  .recipe .chain{margin-top:12px;display:flex;flex-direction:column;gap:9px}
-  .recipe .step{display:flex;align-items:center;gap:10px;font-size:14px;letter-spacing:-.01em}
-  .recipe .step .mk{font-family:var(--mono);font-size:10px;color:var(--dim);width:52px;flex:none;letter-spacing:.08em;text-transform:uppercase}
-  .recipe .act{color:var(--acc);font-weight:600}
-  .recipe .step.d .mk{color:var(--loss)}
-
-  .foot{margin-top:30px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
-        color:var(--dim);text-align:center;text-transform:uppercase}
-
-  /* ---- нижняя CTA (фолбэк MainButton вне Telegram) + тост ---- */
-  body.has-cta{padding-bottom:calc(env(safe-area-inset-bottom) + var(--tabbar) + 82px)}
-  .cta{position:fixed;left:0;right:0;bottom:calc(var(--tabbar) + env(safe-area-inset-bottom));
-     z-index:19;display:none;padding:0 var(--pad) 12px}
-  body.has-cta .cta{display:block}
-  .cta button{width:100%;max-width:460px;margin:0 auto;display:block;border:0;cursor:pointer;
-     background:var(--gold-grad);color:#1A1206;font-family:var(--sans);font-weight:700;font-size:15px;
-     letter-spacing:.01em;padding:15px;border-radius:13px;box-shadow:0 8px 22px rgba(214,180,98,.22)}
-  .toast{position:fixed;left:50%;bottom:calc(var(--tabbar) + 92px);
-     transform:translateX(-50%) translateY(12px);z-index:40;background:var(--panel-2);
-     border:1px solid var(--line);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.45;
-     padding:13px 17px;border-radius:13px;opacity:0;pointer-events:none;
-     transition:opacity .25s,transform .25s;max-width:86%;box-shadow:0 10px 30px rgba(0,0,0,.5)}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-  /* ---- views ---- */
-  .view{display:none}
-  .view.on{display:block;animation:fade .35s ease}
-  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-
-  .pro-only{display:none}
-  body.pro .pro-only{display:block}
-  body.pro .row.pro-only{display:flex}
-  .hint{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em;
-        margin-top:14px;padding-left:13px;border-left:1px solid var(--line)}
-
-  /* ---- bottom tab bar ---- */
-  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;
-     background:linear-gradient(transparent,var(--bg) 26%);padding-bottom:env(safe-area-inset-bottom)}
-  .tabbar .in{max-width:460px;margin:0 auto;height:var(--tabbar);display:grid;grid-template-columns:repeat(4,1fr);
-     border-top:1px solid var(--line);background:rgba(12,11,9,.86);backdrop-filter:blur(12px)}
-  .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
-     background:none;border:0;cursor:pointer;color:var(--dim);transition:color .2s;
-     font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase}
-  .tab svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.6;
-     stroke-linecap:round;stroke-linejoin:round}
-  .tab.on{color:var(--acc)}
-  .tab.on svg{filter:drop-shadow(0 0 6px rgba(214,180,98,.4))}
-
-  @media (prefers-reduced-motion:reduce){
-    .eyebrow.dot::before{animation:none}
-    .bar i{transition:none}
-    .view.on{animation:none}
-  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  body{padding:14px 14px calc(24px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
+  a{color:var(--gold2)}
+  .row{display:flex;align-items:center;gap:8px}
+  .between{justify-content:space-between}
+  .muted{color:var(--dim)}
+  .head{margin:2px 0 14px}
+  .logo{font-size:22px;font-weight:700;letter-spacing:.5px}
+  .logo b{color:var(--gold)}
+  .sub{font-size:12px;color:var(--dim);margin-top:2px}
+  .toggle{display:flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .toggle button{border:0;background:transparent;color:var(--dim);padding:5px 12px;border-radius:999px;
+    font-size:12px;font-weight:600;cursor:pointer}
+  .toggle button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#20180a}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+  .ai{background:radial-gradient(120% 140% at 0% 0%,rgba(217,180,91,.14),transparent 55%),var(--card);
+    border-color:#3a3320}
+  .ai h2{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:8px}
+  .ai .brief{font-size:14px;line-height:1.5;white-space:pre-wrap}
+  .chat{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+  .msgs{display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow-y:auto;padding-right:2px}
+  .msg{padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap;max-width:88%}
+  .msg.u{align-self:flex-end;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#20180a;
+    border-bottom-right-radius:4px}
+  .msg.a{align-self:flex-start;background:var(--card2);border:1px solid var(--line);border-bottom-left-radius:4px}
+  .msg .did{display:block;margin-top:6px;font-size:12px;color:var(--gold2)}
+  .composer{display:flex;gap:8px}
+  .composer input{flex:1;background:var(--card2);border:1px solid var(--line);border-radius:12px;
+    color:var(--txt);padding:11px 12px;font-size:14px;outline:none}
+  .composer input:focus{border-color:var(--gold)}
+  .composer button{border:0;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#20180a;
+    font-weight:700;border-radius:12px;padding:0 16px;font-size:14px;cursor:pointer}
+  .composer button:disabled{opacity:.5}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}
+  .chip{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid var(--line)}
+  .chip.g{color:var(--green);border-color:#255238;background:rgba(79,191,122,.08)}
+  .chip.b{color:var(--red);border-color:#5a2a26;background:rgba(226,105,95,.08)}
+  .area{font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.6px;
+    margin:14px 0 8px}
+  .metric{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+    padding:9px 0;border-bottom:1px solid var(--line)}
+  .metric:last-child{border-bottom:0}
+  .m-name{font-size:14px}
+  .m-name .ai-tag{font-size:10px;color:var(--gold2);vertical-align:super;margin-left:3px}
+  .m-val{font-size:15px;font-weight:700;text-align:right;white-space:nowrap}
+  .m-tr{font-size:12px;font-weight:600;margin-left:8px}
+  .up{color:var(--green)} .down{color:var(--red)} .na{color:var(--flat)}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:middle}
+  .dot.growth{background:var(--green)} .dot.bottleneck{background:var(--red)}
+  .dot.flat{background:var(--flat)} .dot.na{background:#333}
+  .forecast{margin-top:12px;font-size:13px;color:var(--dim)}
+  .forecast b{color:var(--gold2)}
+  .empty{text-align:center;color:var(--dim);font-size:14px;padding:18px 6px;line-height:1.5}
+  .empty code,.banner code{background:var(--card2);border:1px solid var(--line);border-radius:6px;
+    padding:1px 6px;color:var(--gold2)}
+  .banner{font-size:12px;background:var(--card2);border:1px solid var(--line);border-radius:10px;
+    padding:8px 10px;margin-bottom:12px;color:var(--dim)}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--gold);
+    border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle}
+  @keyframes sp{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div class="wrap">
-
-  <div class="top">
-    <div class="brand"><b>WAREON</b> <span>/</span> ANALYTICS</div>
-    <div class="toggle" role="tablist" aria-label="Режим интерфейса">
-      <button id="mSimple" class="on" role="tab" aria-selected="true">Просто</button>
-      <button id="mPro" role="tab" aria-selected="false">Pro</button>
+  <div class="head row between">
+    <div>
+      <div class="logo">War<b>e</b>on</div>
+      <div class="sub">ИИ бизнес-ассистент · видит → думает → делает</div>
+    </div>
+    <div class="toggle" id="mode">
+      <button data-mode="simple" class="on">Просто</button>
+      <button data-mode="pro">Pro</button>
     </div>
   </div>
 
-  <!-- ============ ПУЛЬС ============ -->
-  <div class="view on" data-view="pulse">
-    <div class="eyebrow dot">Пульс бизнеса · сегодня</div>
-    <div class="hero">
-      <div class="figure"><span class="cur">₽</span><span id="p-net" data-target="247850">0</span></div>
-      <div class="sub" id="p-sub">заработано чистыми с начала дня</div>
-      <div class="delta" id="p-delta"><span class="ar">▲</span><span>+12,4% к прошлой неделе</span></div>
+  <div id="banner"></div>
+
+  <!-- ИИ во главе -->
+  <div class="card ai">
+    <h2>🧠 Ассистент</h2>
+    <div class="brief" id="brief"><span class="spin"></span> собираю утренний разбор…</div>
+    <div class="chat">
+      <div class="msgs" id="msgs"></div>
+      <div class="composer">
+        <input id="inp" placeholder="Спроси или дай задачу…" autocomplete="off" />
+        <button id="send">▶</button>
+      </div>
     </div>
-    <div class="pulse"><svg viewBox="0 0 600 74" preserveAspectRatio="none" aria-hidden="true"><polyline points=""></polyline></svg></div>
-
-    <section>
-      <div class="tiles">
-        <div class="tile"><div class="k">Выручка</div><div class="v"><span id="p-rev" data-target="412300">0</span></div><div class="u" id="p-rev-u">₽ / период</div></div>
-        <div class="tile"><div class="k">Расход</div><div class="v"><span id="p-cost" data-target="164450">0</span></div><div class="u">₽ / период</div></div>
-        <div class="tile acc"><div class="k">Маржа</div><div class="v"><span id="p-margin" data-target="41">0</span>%</div><div class="u">чистая</div></div>
-      </div>
-    </section>
-
-    <section id="sec-top">
-      <div class="label">Топ прибыльных <span id="p-period">7 дней</span></div>
-      <div class="row"><div class="rk">1</div><div class="nm">Чехол iPhone 15</div><div class="val"><span class="ar">▲</span>+38 200 ₽</div></div>
-      <div class="row"><div class="rk">2</div><div class="nm">Кабель USB-C 2м</div><div class="val"><span class="ar">▲</span>+21 050 ₽</div></div>
-      <div class="row"><div class="rk">3</div><div class="nm">Защ. стекло 3D</div><div class="val"><span class="ar">▲</span>+17 400 ₽</div></div>
-    </section>
-
-    <section id="sec-anti">
-      <div class="label">Антирейтинг <span>тянут вниз</span></div>
-      <div class="row"><div class="rk">1</div><div class="nm">Зарядка 65W GaN</div><div class="val neg"><span class="ar">▼</span>−4 300 ₽</div></div>
-      <div class="row pro-only"><div class="rk">2</div><div class="nm">Держатель авто</div><div class="val neg"><span class="ar">▼</span>−1 150 ₽</div></div>
-    </section>
-
-    <section>
-      <div class="label">Выручка <span>по дням</span></div>
-      <div class="bars" id="p-bars" data-bars="210,265,180,320,412,298,150" data-labels="Пн,Вт,Ср,Чт,Пт,Сб,Вс"></div>
-    </section>
-
-    <section class="pro-only">
-      <div class="label">Юнит-экономика <span>Pro</span></div>
-      <div class="row"><div class="nm">Средний чек</div><div class="val ink">3 571 ₽</div></div>
-      <div class="row"><div class="nm">CAC / привлечение</div><div class="val ink">612 ₽</div></div>
-      <div class="row"><div class="nm">LTV / CAC</div><div class="val"><span class="ar">▲</span>4,2×</div></div>
-      <div class="hint">Здоровый диапазон LTV/CAC — от 3×. Запас есть — можно агрессивнее вкладываться в трафик.</div>
-    </section>
   </div>
 
-  <!-- ============ СОЦСЕТИ ============ -->
-  <div class="view" data-view="social">
-    <div class="eyebrow dot">Соцсети · аудитория</div>
-    <div class="hero">
-      <div class="figure"><span data-target="48200">0</span><span class="un"> чел.</span></div>
-      <div class="sub">суммарная аудитория всех каналов</div>
-      <div class="delta"><span class="ar">▲</span><span>+1 240 за неделю</span></div>
+  <!-- Пульт -->
+  <div class="card">
+    <div class="row between">
+      <h2 style="margin:0;font-size:15px">🎛 Пульт</h2>
+      <div class="toggle" id="period">
+        <button data-days="7" class="on">7 дн</button>
+        <button data-days="30">30 дн</button>
+      </div>
     </div>
-    <div class="area"><svg viewBox="0 0 320 96" preserveAspectRatio="none" aria-hidden="true">
-      <defs><linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#D6B462" stop-opacity=".38"/><stop offset="1" stop-color="#D6B462" stop-opacity="0"/>
-      </linearGradient></defs>
-      <polygon class="fl" points="0,74 0,62 45,58 91,60 137,44 183,48 229,30 275,26 320,14 320,96 0,96"></polygon>
-      <polyline class="ln" points="0,62 45,58 91,60 137,44 183,48 229,30 275,26 320,14"></polyline>
-    </svg></div>
-
-    <section>
-      <div class="tiles">
-        <div class="tile acc"><div class="k">Подписки</div><div class="v">+<span data-target="1820">0</span></div><div class="u">за неделю</div></div>
-        <div class="tile"><div class="k">Отписки</div><div class="v"><span data-target="580">0</span></div><div class="u">за неделю</div></div>
-        <div class="tile"><div class="k">ER</div><div class="v"><span data-target="7">0</span>,4%</div><div class="u">вовлечён.</div></div>
-      </div>
-    </section>
-
-    <section>
-      <div class="label">Атрибуция · ROMI <span>откуда продажи</span></div>
-      <div class="row"><div class="rk">1</div><div class="nm">Telegram<small>реклама в каналах</small></div><div class="val"><span class="ar">▲</span>+320%</div></div>
-      <div class="row"><div class="rk">2</div><div class="nm">VK<small>таргет</small></div><div class="val"><span class="ar">▲</span>+140%</div></div>
-      <div class="row"><div class="rk">3</div><div class="nm">Блогеры<small>посевы</small></div><div class="val neg"><span class="ar">▼</span>−20%</div></div>
-    </section>
-
-    <section>
-      <div class="label">Лучшее время <span>ИИ-подбор</span></div>
-      <div class="brief"><div class="q">Твоя аудитория активнее всего <b>19:00–21:00</b> в будни. Посты в это окно собирают на <b>+34%</b> охвата. Форматы с видео дают <b>×1.8</b> к продажам против картинок.</div></div>
-    </section>
-
-    <section>
-      <div class="label">Топ постов <span>по выручке</span></div>
-      <div class="row"><div class="rk">1</div><div class="nm">Распаковка новинки<small>18 июля · видео</small></div><div class="val"><span class="ar">▲</span>+64 200 ₽</div></div>
-      <div class="row"><div class="rk">2</div><div class="nm">Гайд «как выбрать»<small>15 июля · карусель</small></div><div class="val"><span class="ar">▲</span>+29 800 ₽</div></div>
-    </section>
+    <div id="panel"><div class="empty"><span class="spin"></span> считаю метрики…</div></div>
   </div>
-
-  <!-- ============ МАРКЕТПЛЕЙСЫ ============ -->
-  <div class="view" data-view="mp">
-    <div class="eyebrow dot">Маркетплейсы · карточка</div>
-    <div class="hero">
-      <div class="figure"><span data-target="8">0</span><span>,4</span><span class="un"> % CTR</span></div>
-      <div class="sub">прогноз кликабельности до запуска рекламы</div>
-      <div class="delta"><span class="ar">▲</span><span>+1,8 п.п. после новой обложки</span></div>
-    </div>
-
-    <section>
-      <div class="label">Воронка карточки <span>показы → заказ</span></div>
-      <div class="fn">
-        <div class="st"><div class="track"><div class="fill" style="width:100%"><span class="p-k">Показы</span></div></div><div class="pv">50 000</div></div>
-        <div class="st"><div class="track"><div class="fill" style="width:62%"><span class="p-k">Клики</span></div></div><div class="pv">4 200</div></div>
-        <div class="st"><div class="track"><div class="fill dim" style="width:34%"><span class="p-k">Корзина</span></div></div><div class="pv">720</div></div>
-        <div class="st"><div class="track"><div class="fill dim" style="width:20%"><span class="p-k">Заказ</span></div></div><div class="pv">168</div></div>
-      </div>
-    </section>
-
-    <section>
-      <div class="label">ИИ-аудит визуала <span>обложка</span></div>
-      <div class="chk"><div class="ic ok">✓</div><div class="ct"><b>Читаемость шрифта</b><small>Заголовок читается с превью в выдаче</small></div></div>
-      <div class="chk"><div class="ic warn">!</div><div class="ct"><b>Визуальный шум</b><small>Правый нижний угол перегружен — упростите фон</small></div></div>
-      <div class="chk"><div class="ic ok">✓</div><div class="ct"><b>Слепые зоны</b><small>Кнопка МП не перекроет ключевой текст</small></div></div>
-      <div class="chk"><div class="ic ok">✓</div><div class="ct"><b>Цветовая температура</b><small>Контраст с соседями по нише выше среднего</small></div></div>
-    </section>
-
-    <section class="pro-only">
-      <div class="label">Юнит-экономика <span>с единицы · Pro</span></div>
-      <div class="row"><div class="nm">Цена</div><div class="val ink">1 500 ₽</div></div>
-      <div class="row"><div class="nm">Комиссия + логистика</div><div class="val ink">−380 ₽</div></div>
-      <div class="row"><div class="nm">Себестоимость + реклама</div><div class="val ink">−650 ₽</div></div>
-      <div class="row"><div class="nm">Прибыль с единицы</div><div class="val"><span class="ar">▲</span>+470 ₽</div></div>
-      <div class="hint">Маржа 31% — карточку можно продвигать платно без ухода в минус.</div>
-    </section>
-  </div>
-
-  <!-- ============ ИИ-МОЗГ ============ -->
-  <div class="view" data-view="ai">
-    <div class="eyebrow dot">ИИ-мозг · утренняя сводка</div>
-    <div style="height:12px"></div>
-    <section style="margin-top:8px">
-      <div class="brief"><div class="q" id="ai-brief">Вчера заработано <b>231 400 ₽</b> чистыми — на 8% выше среднего. Главный драйвер — Telegram-реклама. Приоритеты на сегодня: <b>1)</b> поднять цену на «Зарядку 65W» — она в минусе; <b>2)</b> заказать поставку «Чехлов» — остаток на 4 дня; <b>3)</b> ответить на 3 отзыва с рейтингом ниже 4★.</div></div>
-    </section>
-
-    <section>
-      <div class="label">Рецепты <span>решение, а не алерт</span></div>
-      <div class="recipe">
-        <div class="re">Рецепт · маркетплейс</div>
-        <div class="chain">
-          <div class="step d"><span class="mk">Симптом</span><span>Выкуп упал на 3%</span></div>
-          <div class="step"><span class="mk">Причина</span><span>Конкурент сделал скидку −40 ₽</span></div>
-          <div class="step"><span class="mk">Действие</span><span class="act">Снизьте цену на 40 ₽ или добавьте бонус</span></div>
-        </div>
-      </div>
-      <div class="recipe">
-        <div class="re">Рецепт · трафик</div>
-        <div class="chain">
-          <div class="step d"><span class="mk">Симптом</span><span>ДРР вырос до 18%</span></div>
-          <div class="step"><span class="mk">Причина</span><span>Ставка на блогеров не окупается</span></div>
-          <div class="step"><span class="mk">Действие</span><span class="act">Перелейте бюджет в Telegram (ROMI +320%)</span></div>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="label">Шпионаж за конкурентами <span>рынок</span></div>
-      <div class="row"><div class="nm">«ТехноМир»<small>обнулил остатки на складе</small></div><div class="val"><span class="ar">▲</span>шанс</div></div>
-      <div class="row"><div class="nm">«GadgetPro»<small>запустил акцию −25%</small></div><div class="val neg"><span class="ar">▼</span>угроза</div></div>
-      <div class="row pro-only"><div class="nm">«CaseLand»<small>поднял цену на чехлы +12%</small></div><div class="val"><span class="ar">▲</span>шанс</div></div>
-    </section>
-  </div>
-
-  <div class="foot">Wareon Analytics · демо-данные</div>
-</div>
-
-<!-- ============ CTA (фолбэк MainButton) + тост ============ -->
-<div class="cta"><button id="ctaBtn" type="button">Отчёт за месяц</button></div>
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-<!-- ============ TAB BAR ============ -->
-<nav class="tabbar"><div class="in">
-  <button class="tab on" data-tab="pulse">
-    <svg viewBox="0 0 24 24"><path d="M2 12.5h4l2.2-6 3.6 12 2.4-6H22"/></svg>Пульс</button>
-  <button class="tab" data-tab="social">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.4"/><path d="M6.4 6.4a8 8 0 0 0 0 11.2M17.6 6.4a8 8 0 0 1 0 11.2M3.4 3.4a12 12 0 0 0 0 17.2M20.6 3.4a12 12 0 0 1 0 17.2"/></svg>Соцсети</button>
-  <button class="tab" data-tab="mp">
-    <svg viewBox="0 0 24 24"><path d="M5.5 8.5h13l-1 11.5h-11l-1-11.5z"/><path d="M9 8.5V6.5a3 3 0 0 1 6 0v2"/></svg>Маркет</button>
-  <button class="tab" data-tab="ai">
-    <svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.4L12 17l-1.9-5.6L4.5 10l5.6-1.4L12 3z"/></svg>ИИ-мозг</button>
-</div></nav>
 
 <script>
-(function(){
-  "use strict";
-  var reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
-  var tg = null;
-  try{ tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null; }catch(e){}
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (tg) {
+  tg.ready(); tg.expand();
+  try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch(e){}
+}
+const qs = new URLSearchParams(location.search);
+// База API: ?api=... или глобаль WAREON_API, иначе тот же origin.
+const API = (qs.get('api') || window.WAREON_API || '').replace(/\/$/,'');
+const initData = tg && tg.initData ? tg.initData : '';
+const DEV = qs.get('dev_user_id');
 
-  function safe(fn){ try{ return fn(); }catch(e){} }
+function url(path, params={}) {
+  const u = new URL((API || '') + path, location.origin);
+  Object.entries(params).forEach(([k,v]) => v!=null && u.searchParams.set(k,v));
+  if (!initData && DEV) u.searchParams.set('dev_user_id', DEV);
+  return u.toString();
+}
+function headers(json){
+  const h = {}; if (json) h['Content-Type']='application/json';
+  if (initData) h['X-Init-Data']=initData; return h;
+}
+async function getJSON(path, params){ const r=await fetch(url(path,params),{headers:headers(false)});
+  if(!r.ok) throw new Error(r.status); return r.json(); }
+async function postJSON(path, body){ const r=await fetch(url(path),{method:'POST',headers:headers(true),
+  body:JSON.stringify(body)}); if(!r.ok) throw new Error(r.status); return r.json(); }
 
-  // тактильный отклик
-  function haptic(kind){
-    safe(function(){
-      if(!tg || !tg.HapticFeedback) return;
-      if(kind === "select") tg.HapticFeedback.selectionChanged();
-      else tg.HapticFeedback.impactOccurred(kind || "light");
+let MODE = localStorage.getItem('wareon_mode') || 'simple';
+let DAYS = +(localStorage.getItem('wareon_days') || 7);
+
+function setActive(id, attr, val){
+  document.querySelectorAll('#'+id+' button').forEach(b=>
+    b.classList.toggle('on', b.dataset[attr]===val));
+}
+setActive('mode','mode',MODE); setActive('period','days',String(DAYS));
+
+// ── Пульт ─────────────────────────────────────────────
+const AREA = {finance:'Финансы',sales:'Продажи и конверсия',marketing:'Маркетинг',
+  marketplace:'Маркетплейс',clients:'Клиентская экономика',custom:'Мои метрики'};
+const KEY_METRICS = new Set(['revenue','profit','margin_pct','avg_check','orders']);
+function money(v){ return Math.round(v).toLocaleString('ru-RU')+' ₽'; }
+function fmt(v,u){ if(v==null) return 'нет данных';
+  if(u==='₽') return money(v); if(u==='%') return (Math.round(v*10)/10)+'%';
+  if(u==='шт') return (Math.round(v*100)/100)+' шт'; return Math.round(v*100)/100; }
+function trend(t){ if(t==null) return '';
+  const cls=t>0?'up':t<0?'down':'na', a=t>0?'▲':t<0?'▼':'=';
+  return `<span class="m-tr ${cls}">${a}${Math.abs(Math.round(t))}%</span>`; }
+
+async function loadPanel(){
+  const el = document.getElementById('panel');
+  el.innerHTML = '<div class="empty"><span class="spin"></span> считаю метрики…</div>';
+  let p;
+  try { p = await getJSON('/api/panel',{days:DAYS}); }
+  catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить данные.<br>Проверь связь с ботом.</div>'; return; }
+  if(!p.has_data){
+    el.innerHTML = '<div class="empty">Пока нет продаж за период.<br>Добавь их боту: <code>/sale 15000 8000</code></div>';
+    return;
+  }
+  let html = '';
+  const chips = [];
+  p.growth_points.forEach(t=>chips.push('<span class="chip g">📈 '+t+'</span>'));
+  p.bottlenecks.forEach(t=>chips.push('<span class="chip b">⚠️ '+t+'</span>'));
+  if(chips.length) html += '<div class="chips">'+chips.join('')+'</div>';
+
+  const shown = p.metrics.filter(m =>
+    MODE==='pro' ? true : (KEY_METRICS.has(m.key) || m.status==='growth' || m.status==='bottleneck' || m.custom));
+  const byArea = {};
+  shown.forEach(m => (byArea[m.area] = byArea[m.area]||[]).push(m));
+  Object.keys(byArea).forEach(area=>{
+    html += '<div class="area">'+(AREA[area]||area)+'</div>';
+    byArea[area].forEach(m=>{
+      html += '<div class="metric"><div class="m-name">'
+        + '<span class="dot '+m.status+'"></span>'+m.title
+        + (m.custom?'<span class="ai-tag">✦</span>':'')+'</div>'
+        + '<div class="m-val '+(m.value==null?'na':'')+'">'+fmt(m.value,m.unit)+trend(m.trend_pct)+'</div></div>';
     });
-  }
-
-  // всплывающее уведомление (в браузере) / нативный попап (в Telegram)
-  var toastEl = document.getElementById("toast"), toastTimer;
-  function notify(msg){
-    if(tg && tg.showPopup) return safe(function(){ tg.showPopup({title:"Wareon", message:msg, buttons:[{type:"ok"}]}); });
-    if(tg && tg.showAlert) return safe(function(){ tg.showAlert(msg); });
-    toastEl.textContent = msg; toastEl.classList.add("show");
-    clearTimeout(toastTimer); toastTimer = setTimeout(function(){ toastEl.classList.remove("show"); }, 2800);
-  }
-
-  // подписи и действия нижней кнопки по вкладкам
-  var CTA = {pulse:"Отчёт за месяц", social:"Подключить канал", mp:"Проверить мою карточку", ai:"Спросить ИИ"};
-  var ACT = {
-    pulse:"Демо: полный отчёт за месяц с графиками и рекомендациями подключим к реальным данным.",
-    social:"Демо: добавьте бота в канал администратором — статистика появится здесь.",
-    mp:"Демо: пришлите обложку карточки — ИИ-аудит визуала уже в разработке.",
-    ai:"Демо: задайте вопрос по бизнесу — ИИ-мозг подключим на следующем шаге."
-  };
-  var currentTab = "pulse";
-  var ctaBtn = document.getElementById("ctaBtn");
-  function primaryAction(){ haptic("medium"); notify(ACT[currentTab]); }
-
-  // адрес «склада» данных. Пусто → дашборд остаётся на демо-цифрах.
-  var API_BASE = (window.WAREON_API || "").replace(/\/+$/, "");
-
-  // --- инициализация Telegram Mini App ---
-  if(tg){
-    safe(function(){ tg.ready(); });
-    safe(function(){ tg.expand(); });
-    safe(function(){ if(tg.requestFullscreen && tg.isVersionAtLeast && tg.isVersionAtLeast("8.0")) tg.requestFullscreen(); });
-    safe(function(){ if(tg.setHeaderColor) tg.setHeaderColor("#0A0908"); });
-    safe(function(){ if(tg.setBackgroundColor) tg.setBackgroundColor("#0A0908"); });
-    safe(function(){ if(tg.disableVerticalSwipes) tg.disableVerticalSwipes(); }); // не закрывать при скролле
-    safe(function(){ if(tg.MainButton){ tg.MainButton.setParams({color:"#D6B462", text_color:"#1A1206", is_active:true}); tg.MainButton.onClick(primaryAction); } });
-    safe(function(){ if(tg.BackButton) tg.BackButton.onClick(function(){ haptic("select"); setTab("pulse"); }); });
-  } else {
-    document.body.classList.add("has-cta");
-    ctaBtn.addEventListener("click", primaryAction);
-  }
-
-  var NBSP = " ";
-  function fmt(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, NBSP); }
-
-  function countUp(el, target, dur){
-    if(reduce){ el.textContent = fmt(target); return; }
-    var start = performance.now();
-    (function step(t){
-      var p = Math.min(1,(t-start)/dur), e = 1-Math.pow(1-p,3);
-      el.textContent = fmt(target*e);
-      if(p<1) requestAnimationFrame(step); else el.textContent = fmt(target);
-    })(performance.now());
-  }
-
-  // строит осциллограф-пульс в переданном polyline
-  function buildPulse(poly){
-    var svg = poly.parentNode;
-    var beat = [0,0,3,-4,8,0,0,0,-26,42,-20,0,0,0,4,-3,0,0], mid=37;
-    var stepX = 600/(beat.length*2.4), x=0, pts=[];
-    for(var pass=0;pass<2;pass++) for(var i=0;i<beat.length;i++){ pts.push(x.toFixed(1)+","+(mid+beat[i])); x+=stepX; }
-    var half=x/2;
-    poly.setAttribute("points",pts.join(" "));
-    svg.setAttribute("viewBox","0 0 "+half+" 74");
-    svg.style.width=(half*2)+"px";
-    if(!reduce && poly.animate)
-      poly.animate([{transform:"translateX(0)"},{transform:"translateX(-"+half+"px)"}],
-        {duration:2600,iterations:Infinity,easing:"linear"});
-  }
-
-  function buildBars(el){
-    var vals = el.dataset.bars.split(",").map(Number);
-    var labs = el.dataset.labels.split(",");
-    var max = Math.max.apply(null,vals);
-    vals.forEach(function(v,i){
-      var w=document.createElement("div"); w.className="bar"+(v===max?" max":"");
-      var bar=document.createElement("i"), lab=document.createElement("b"); lab.textContent=labs[i];
-      w.appendChild(bar); w.appendChild(lab); el.appendChild(w);
-      var h=(v/max*84)+"%";
-      if(reduce){ bar.style.height=h; }
-      else { bar.style.height="0%"; setTimeout(function(){ bar.style.height=h; }, 120+i*60); }
-    });
-  }
-
-  // инициализация вида один раз при первом показе
-  var inited={};
-  function initView(name){
-    if(inited[name]) return; inited[name]=true;
-    var view=document.querySelector('[data-view="'+name+'"]');
-    view.querySelectorAll("[data-target]").forEach(function(el){ countUp(el,+el.dataset.target,1100); });
-    view.querySelectorAll(".pulse polyline").forEach(buildPulse);
-    view.querySelectorAll("[data-bars]").forEach(buildBars);
-    if(name==="pulse" && !reduce){
-      var net=view.querySelector('.figure [data-target="247850"]'), v=247850;
-      setTimeout(function(){ setInterval(function(){ v+=120+Math.floor(Math.random()*680); net.textContent=fmt(v); },4200); },1400);
-    }
-    if(name==="ai") loadBrief();
-  }
-  // --- загрузка реальных данных «Пульса» из API ---
-  function setNum(id, value){
-    var el = document.getElementById(id); if(!el) return;
-    if(reduce){ el.textContent = fmt(value); } else countUp(el, value, 900);
-  }
-  function money(v){ return (v<0?"−":"+") + fmt(Math.abs(v)) + " ₽"; }
-  function renderRows(sectionId, list, neg){
-    var sec = document.getElementById(sectionId); if(!sec) return;
-    sec.querySelectorAll(".row").forEach(function(r){ r.remove(); });
-    if(!list || !list.length){
-      var e = document.createElement("div"); e.className = "row";
-      e.innerHTML = '<div class="nm" style="color:var(--dim)">Нет данных за период</div>';
-      sec.appendChild(e); return;
-    }
-    list.forEach(function(it, i){
-      var row = document.createElement("div"); row.className = "row";
-      row.innerHTML = '<div class="rk">' + (i+1) + '</div><div class="nm">' +
-        String(it.name) + '</div><div class="val' + (neg?" neg":"") + '"><span class="ar">' +
-        (neg?"▼":"▲") + '</span>' + money(it.profit) + '</div>';
-      sec.appendChild(row);
-    });
-  }
-  function renderBars(byDay){
-    var el = document.getElementById("p-bars"); if(!el) return;
-    var last = byDay.slice(-7);
-    el.innerHTML = "";
-    el.dataset.bars = last.map(function(d){ return Math.max(0, d.revenue); }).join(",");
-    el.dataset.labels = last.map(function(d){ return d.day; }).join(",");
-    buildBars(el);
-  }
-  function applyPulse(d){
-    if(!d || !d.has_data) return;
-    setNum("p-net", d.net_today);
-    setNum("p-rev", d.revenue);
-    setNum("p-cost", d.cost);
-    setNum("p-margin", d.margin_pct);
-    safe(function(){ document.getElementById("p-rev-u").textContent = "₽ / " + d.days + " дн."; });
-    safe(function(){ document.getElementById("p-period").textContent = d.days + " дн."; });
-    if(d.revenue_delta_pct != null){
-      var up = d.revenue_delta_pct >= 0, delta = document.getElementById("p-delta");
-      delta.className = "delta" + (up ? "" : " neg");
-      delta.innerHTML = '<span class="ar">' + (up?"▲":"▼") + '</span><span>' +
-        (up?"+":"−") + Math.abs(d.revenue_delta_pct).toString().replace(".", ",") +
-        "% к прошлому периоду</span>";
-    }
-    renderRows("sec-top", d.top_products, false);
-    renderRows("sec-anti", d.antirating, true);
-    if(d.by_day && d.by_day.length) renderBars(d.by_day);
-  }
-  function loadPulse(){
-    if(!tg || !API_BASE) return;
-    var initData = tg.initData || "";
-    if(!initData) return;
-    fetch(API_BASE + "/api/pulse?days=7", {headers:{"X-Init-Data": initData}})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(applyPulse)
-      .catch(function(){ /* нет связи — остаёмся на демо */ });
-  }
-
-  // --- реальная ИИ-сводка для экрана «ИИ-мозг» ---
-  var briefLoaded = false;
-  function loadBrief(){
-    if(briefLoaded || !tg || !API_BASE) return;
-    var initData = tg.initData || "";
-    if(!initData) return;
-    briefLoaded = true;
-    fetch(API_BASE + "/api/brief", {headers:{"X-Init-Data": initData}})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){
-        if(!d || !d.text) return;
-        var el = document.getElementById("ai-brief");
-        if(el){ el.style.whiteSpace = "pre-wrap"; el.textContent = d.text; }
-      })
-      .catch(function(){ /* нет связи — остаётся демо */ });
-  }
-
-  // --- переключение вкладок + нативные кнопки ---
-  var tabs = document.querySelectorAll(".tab"), views = document.querySelectorAll(".view");
-  function setTab(name){
-    currentTab = name;
-    tabs.forEach(function(t){ t.classList.toggle("on", t.dataset.tab === name); });
-    views.forEach(function(v){ v.classList.toggle("on", v.dataset.view === name); });
-    initView(name);
-    window.scrollTo(0, 0);
-    // нижняя кнопка: нативная в Telegram, DOM-фолбэк в браузере
-    if(tg && tg.MainButton) safe(function(){ tg.MainButton.setText(CTA[name]); tg.MainButton.show(); });
-    else ctaBtn.textContent = CTA[name];
-    // системная «Назад» — на всех вкладках, кроме домашней
-    if(tg && tg.BackButton) safe(function(){ name === "pulse" ? tg.BackButton.hide() : tg.BackButton.show(); });
-  }
-  tabs.forEach(function(tab){
-    tab.addEventListener("click", function(){ haptic("select"); setTab(tab.dataset.tab); });
   });
+  if(p.forecast_revenue!=null)
+    html += '<div class="forecast">🔮 Прогноз выручки на следующие '+p.days+' дн: <b>'+money(p.forecast_revenue)+'</b></div>';
+  el.innerHTML = html;
+}
 
-  // тумблер Просто / Pro
-  var s = document.getElementById("mSimple"), p = document.getElementById("mPro");
-  function mode(pro){
-    haptic("select");
-    document.body.classList.toggle("pro", pro);
-    p.classList.toggle("on", pro); s.classList.toggle("on", !pro);
-    p.setAttribute("aria-selected", pro); s.setAttribute("aria-selected", !pro);
-  }
-  s.onclick = function(){ mode(false); }; p.onclick = function(){ mode(true); };
+// ── Ассистент ─────────────────────────────────────────
+async function loadBrief(){
+  const el = document.getElementById('brief');
+  try {
+    const b = await getJSON('/api/brief');
+    el.textContent = b.enabled ? (b.text||'') :
+      'ИИ пока не подключён — добавь ключ Anthropic, и я начну вести разбор.';
+  } catch(e){ el.textContent = 'Не удалось получить разбор.'; }
+}
+function addMsg(text, who, did){
+  const m = document.createElement('div');
+  m.className = 'msg '+(who==='u'?'u':'a');
+  m.textContent = text;
+  if(did && did.length){ const s=document.createElement('span'); s.className='did';
+    s.textContent='✓ '+did.join('; '); m.appendChild(s); }
+  const box = document.getElementById('msgs'); box.appendChild(m); box.scrollTop = box.scrollHeight;
+  return m;
+}
+async function send(){
+  const inp = document.getElementById('inp'); const text = inp.value.trim();
+  if(!text) return;
+  inp.value=''; document.getElementById('send').disabled=true;
+  if(tg && tg.HapticFeedback) try{ tg.HapticFeedback.impactOccurred('light'); }catch(e){}
+  addMsg(text,'u');
+  const wait = addMsg('…','a');
+  try {
+    const r = await postJSON('/api/chat',{message:text});
+    wait.textContent = r.text || '';
+    if(r.actions && r.actions.length){ const s=document.createElement('span'); s.className='did';
+      s.textContent='✓ '+r.actions.join('; '); wait.appendChild(s); loadPanel(); }
+  } catch(e){ wait.textContent = 'Не получилось ответить, попробуй ещё раз.'; }
+  document.getElementById('send').disabled=false;
+  document.getElementById('msgs').scrollTop = 1e9;
+}
 
-  setTab("pulse");
-  loadPulse(); // подтянуть реальные цифры, если задан API и есть данные
-})();
+// ── События ───────────────────────────────────────────
+document.getElementById('send').onclick = send;
+document.getElementById('inp').addEventListener('keydown', e=>{ if(e.key==='Enter') send(); });
+document.getElementById('mode').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  MODE=b.dataset.mode; localStorage.setItem('wareon_mode',MODE);
+  setActive('mode','mode',MODE); loadPanel();
+});
+document.getElementById('period').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  DAYS=+b.dataset.days; localStorage.setItem('wareon_days',String(DAYS));
+  setActive('period','days',String(DAYS)); loadPanel();
+});
+
+if(!initData && !DEV){
+  document.getElementById('banner').innerHTML =
+    '<div class="banner">Открой дашборд из Telegram, чтобы увидеть свои данные. ' +
+    'Для локального теста добавь <code>?dev_user_id=…</code>.</div>';
+}
+loadBrief(); loadPanel();
 </script>
 </body>
 </html>

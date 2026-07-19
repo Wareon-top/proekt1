@@ -22,6 +22,37 @@ class BriefResponse(BaseModel):
     text: str
 
 
+class MetricOut(BaseModel):
+    key: str
+    title: str
+    unit: str
+    area: str
+    value: float | None
+    prev: float | None = None
+    trend_pct: float | None = None
+    status: str            # growth | bottleneck | flat | na
+    custom: bool = False
+
+
+class PanelResponse(BaseModel):
+    has_data: bool
+    days: int
+    forecast_revenue: float | None = None
+    growth_points: list[str] = []
+    bottlenecks: list[str] = []
+    metrics: list[MetricOut] = []
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+class ChatResponse(BaseModel):
+    enabled: bool          # подключён ли ИИ (есть ключ)
+    text: str
+    actions: list[str] = []
+
+
 class PulseResponse(BaseModel):
     has_data: bool
     days: int
