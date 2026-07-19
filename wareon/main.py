@@ -4,7 +4,18 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import MenuButtonWebApp, WebAppInfo
+from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
+
+BOT_COMMANDS = [
+    BotCommand(command="start", description="🏠 Меню"),
+    BotCommand(command="agent", description="🧠 Спросить ассистента"),
+    BotCommand(command="pulse", description="🎛 Пульт метрик"),
+    BotCommand(command="report", description="📋 Отчёт по продажам"),
+    BotCommand(command="sale", description="➕ Записать продажу"),
+    BotCommand(command="autonomy", description="⚙️ Автономия ИИ"),
+    BotCommand(command="subscribe", description="🗓 Регулярные отчёты"),
+    BotCommand(command="alert", description="⚠️ Алерт по марже"),
+]
 
 from wareon.config import settings
 from wareon.db.base import init_db
@@ -26,6 +37,8 @@ async def main() -> None:
     setup_routers(dp)
 
     scheduler_task = asyncio.create_task(scheduler_loop(bot))
+
+    await bot.set_my_commands(BOT_COMMANDS)
 
     # Кнопка-меню Telegram (рядом с полем ввода) открывает мини-приложение
     if settings.webapp_enabled:
