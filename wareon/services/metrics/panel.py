@@ -199,7 +199,10 @@ async def build_panel(
     if include_custom:
         custom_defs = (
             await session.scalars(
-                select(CustomMetric).where(CustomMetric.user_tg_id == user_tg_id)
+                select(CustomMetric).where(
+                    CustomMetric.user_tg_id == user_tg_id,
+                    CustomMetric.pending == False,  # noqa: E712 — SQL, не Python
+                )
             )
         ).all()
         for cm in custom_defs:

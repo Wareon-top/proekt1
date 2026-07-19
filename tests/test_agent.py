@@ -1,0 +1,257 @@
+import asyncio
+from datetime import datetime
+
+import pytest
+
+from wareon.config import settings
+from wareon.services import agent
+
+
+# ── Мок ответа модели ────────────────────────────────────────────────────────
+class Blk:
+    def __init__(self, type, **kw):
+        self.type = type
+        self.__dict__.update(kw)
+
+
+def txt(t):
+    return Blk("text", text=t)
+
+
+def tool(id, name, input):
+    return Blk("tool_use", id=id, name=name, input=input)
+
+
+class Resp:
+    def __init__(self, stop_reason, content):
+        self.stop_reason = stop_reason
+        self.content = content
+
+
+def scripted(monkeypatch, responses):
+    """Подменяет вызов модели заранее заготовленной последовательностью ответов."""
+    seq = iter(responses)
+
+    async def fake_create(messages):
+        return next(seq)
+
+    monkeypatch.setattr(agent, "_create_message", fake_create)
+    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")  # включает ai_enabled
+
+
+async def _seed_sale(session_factory_, uid, revenue=1000, cost=300):
+    from wareon.db.models import Sale
+
+    async with session_factory_() as s:
+        s.add(Sale(user_tg_id=uid, revenue=revenue, cost=cost, created_at=datetime(2026, 7, 18)))
+        await s.commit()
+
+
+# ── Автономия ────────────────────────────────────────────────────────────────
+def test_autonomy_default_and_set():
+    from wareon.db.base import init_db, session_factory
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            default = await agent.get_autonomy(s, 810001)
+            await agent.set_autonomy(s, 810001, "autopilot")
+            after = await agent.get_autonomy(s, 810001)
+        return default, after
+
+    default, after = asyncio.run(flow())
+    assert default == "semi"
+    assert after == "autopilot"
+
+
+def test_set_autonomy_rejects_unknown():
+    from wareon.db.base import init_db, session_factory
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            with pytest.raises(ValueError):
+                await agent.set_autonomy(s, 810002, "turbo")
+
+    asyncio.run(flow())
+
+
+# ── Цикл оркестратора ────────────────────────────────────────────────────────
+def test_agent_disabled_without_key(monkeypatch):
+    from wareon.db.base import init_db, session_factory
+
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            return await agent.run_agent(s, 810003, "как дела?")
+
+    result = asyncio.run(flow())
+    assert result.text == agent.ai.DISABLED_MSG
+
+
+def test_agent_reads_panel_then_answers(monkeypatch):
+    from wareon.db.base import init_db, session_factory
+
+    scripted(
+        monkeypatch,
+        [
+            Resp("tool_use", [tool("t1", "get_panel", {"days": 7})]),
+            Resp("end_turn", [txt("Выручка есть, маржа хорошая.")]),
+        ],
+    )
+    uid = 810010
+
+    async def flow():
+        await init_db()
+        await _seed_sale(session_factory, uid)
+        async with session_factory() as s:
+            return await agent.run_agent(s, uid, "как бизнес за неделю?")
+
+    result = asyncio.run(flow())
+    assert "маржа" in result.text
+
+
+def test_agent_adds_metric_on_autopilot(monkeypatch):
+    from sqlalchemy import select
+
+    from wareon.db.base import init_db, session_factory
+    from wareon.db.models import CustomMetric
+
+    scripted(
+        monkeypatch,
+        [
+            Resp(
+                "tool_use",
+                [
+                    tool(
+                        "t1",
+                        "add_metric",
+                        {
+                            "key": "ad_share",
+                            "title": "Доля рекламы",
+                            "formula": "ad_spend / revenue * 100",
+                            "unit": "%",
+                            "direction": "down",
+                        },
+                    )
+                ],
+            ),
+            Resp("end_turn", [txt("Готово, метрика в пульте.")]),
+        ],
+    )
+    uid = 810011
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            await agent.set_autonomy(s, uid, "autopilot")
+        async with session_factory() as s:
+            result = await agent.run_agent(s, uid, "заведи долю рекламы")
+        async with session_factory() as s:
+            cm = await s.scalar(
+                select(CustomMetric).where(CustomMetric.user_tg_id == uid)
+            )
+        return result, cm
+
+    result, cm = asyncio.run(flow())
+    assert cm is not None
+    assert cm.pending is False
+    assert cm.created_by == "ai"
+    assert any("завёл метрику" in a for a in result.actions)
+
+
+def test_agent_proposes_metric_on_semi(monkeypatch):
+    from sqlalchemy import select
+
+    from wareon.db.base import init_db, session_factory
+    from wareon.db.models import CustomMetric
+
+    scripted(
+        monkeypatch,
+        [
+            Resp(
+                "tool_use",
+                [
+                    tool(
+                        "t1",
+                        "add_metric",
+                        {
+                            "key": "roas",
+                            "title": "ROAS",
+                            "formula": "revenue / ad_spend",
+                            "direction": "up",
+                        },
+                    )
+                ],
+            ),
+            Resp("end_turn", [txt("Предложил метрику, подтверди.")]),
+        ],
+    )
+    uid = 810012  # по умолчанию semi
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            result = await agent.run_agent(s, uid, "заведи ROAS")
+        async with session_factory() as s:
+            cm = await s.scalar(
+                select(CustomMetric).where(CustomMetric.user_tg_id == uid)
+            )
+        return result, cm
+
+    result, cm = asyncio.run(flow())
+    assert cm is not None
+    assert cm.pending is True  # ждёт подтверждения
+    assert result.pending and result.pending[0][1] == "ROAS"
+
+
+def test_agent_rejects_unsafe_formula(monkeypatch):
+    from sqlalchemy import select
+
+    from wareon.db.base import init_db, session_factory
+    from wareon.db.models import CustomMetric
+
+    scripted(
+        monkeypatch,
+        [
+            Resp(
+                "tool_use",
+                [
+                    tool(
+                        "t1",
+                        "add_metric",
+                        {
+                            "key": "evil",
+                            "title": "Взлом",
+                            "formula": "__import__('os')",
+                            "direction": "up",
+                        },
+                    )
+                ],
+            ),
+            Resp("end_turn", [txt("Не вышло завести — формула небезопасна.")]),
+        ],
+    )
+    uid = 810013
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            result = await agent.run_agent(s, uid, "заведи взлом")
+        async with session_factory() as s:
+            cm = await s.scalar(
+                select(CustomMetric).where(CustomMetric.user_tg_id == uid)
+            )
+        return result, cm
+
+    result, cm = asyncio.run(flow())
+    assert cm is None  # опасная формула не сохранена
+    assert not result.actions
+
+
+def test_slug_sanitizes():
+    assert agent._slug("Доля Рекламы!!!") == "metric"  # кириллица отбрасывается
+    assert agent._slug("Ad Share %") == "ad_share"
+    assert agent._slug("") == "metric"

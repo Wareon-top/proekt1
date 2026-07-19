@@ -1,6 +1,7 @@
 from aiogram import Dispatcher
 
 from wareon.handlers import (
+    agent,
     ai,
     business,
     marketplace,
@@ -23,6 +24,7 @@ def setup_routers(dp: Dispatcher) -> None:
     dp.include_router(reports.router)
     dp.include_router(schedule.router)
     dp.include_router(pulse.router)
+    dp.include_router(agent.router)
     dp.include_router(ai.router)
     # qa — последним: перехватывает весь прочий текст в личке как вопрос к таблице
     dp.include_router(qa.router)

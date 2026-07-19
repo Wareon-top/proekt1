@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     Float,
     Integer,
@@ -127,6 +128,21 @@ class CustomMetric(Base):
     direction: Mapped[str] = mapped_column(String(8), default="up")  # up | down | neutral
     area: Mapped[str] = mapped_column(String(24), default="custom")
     created_by: Mapped[str] = mapped_column(String(8), default="user")  # user | ai
+    # Метрика, предложенная ИИ, но ещё не подтверждённая (при неполной автономии).
+    pending: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class AgentSetting(Base):
+    """Уровень автономии ИИ-оркестратора для клиента (Раздел 2 «Управляемо»)."""
+
+    __tablename__ = "agent_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_tg_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    # autopilot — делает сам; semi — рутину сам, наружу с подтверждением;
+    # manual — только предлагает.
+    level: Mapped[str] = mapped_column(String(16), default="semi")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
