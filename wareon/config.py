@@ -56,7 +56,15 @@ class Settings(BaseSettings):
 
     @property
     def sqlalchemy_url(self) -> str:
-        return self.database_url or f"sqlite+aiosqlite:///{self.database_path}"
+        url = self.database_url.strip()
+        if not url:
+            return f"sqlite+aiosqlite:///{self.database_path}"
+        # Хостинги (Render/Railway) дают postgres://… — приводим к async-драйверу.
+        if url.startswith("postgres://"):
+            return "postgresql+asyncpg://" + url[len("postgres://") :]
+        if url.startswith("postgresql://") and "+asyncpg" not in url:
+            return "postgresql+asyncpg://" + url[len("postgresql://") :]
+        return url
 
     @property
     def cors_origin_list(self) -> list[str]:

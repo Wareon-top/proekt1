@@ -21,6 +21,16 @@ def test_webapp_enabled_flag():
     assert Settings(webapp_url="").webapp_enabled is False
 
 
+def test_sqlalchemy_url_normalizes_postgres():
+    # Render/Railway отдают postgres:// — приводим к async-драйверу
+    assert Settings(database_url="postgres://u:p@h/db").sqlalchemy_url == "postgresql+asyncpg://u:p@h/db"
+    assert Settings(database_url="postgresql://u:p@h/db").sqlalchemy_url == "postgresql+asyncpg://u:p@h/db"
+    # уже с драйвером — не трогаем
+    assert Settings(database_url="postgresql+asyncpg://u:p@h/db").sqlalchemy_url == "postgresql+asyncpg://u:p@h/db"
+    # пусто — SQLite
+    assert Settings(database_url="", database_path="x.db").sqlalchemy_url == "sqlite+aiosqlite:///x.db"
+
+
 def test_crm_url():
     assert Settings(webapp_url="https://pages.io/app/").crm_url == "https://pages.io/app/crm.html"
     assert Settings(webapp_url="https://pages.io/app").crm_url == "https://pages.io/app/crm.html"
