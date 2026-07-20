@@ -19,6 +19,28 @@ def make_summary(**kw) -> SalesSummary:
     return SalesSummary(**base)
 
 
+def test_panel_context_from_metrics():
+    from wareon.services.metrics.panel import (
+        STATUS_BOTTLENECK,
+        STATUS_GROWTH,
+        MetricValue,
+        Panel,
+    )
+
+    panel = Panel(
+        days=7,
+        metrics=[
+            MetricValue("revenue", "Выручка", "₽", "finance", 12000, 6000, 100.0, STATUS_GROWTH),
+            MetricValue("cost", "Себестоимость", "₽", "finance", 4000, 3000, 33.0, STATUS_BOTTLENECK),
+        ],
+        forecast_revenue=15000.0,
+    )
+    ctx = ai._panel_context(panel)
+    assert "Точки роста: Выручка" in ctx
+    assert "Узкие места: Себестоимость" in ctx
+    assert "Прогноз выручки" in ctx
+
+
 def test_build_context_has_real_numbers():
     ctx = ai.build_context(make_summary(), net_today=12345.0)
     assert "12 345" in ctx          # заработано сегодня

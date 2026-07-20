@@ -11,9 +11,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from wareon.config import settings
-from wareon.db.models import AiBrief
+from wareon.db.models import AgentMemory, AiBrief
 from wareon.services import reports
 from wareon.services.knowledge import BUSINESS_KNOWLEDGE
+from wareon.services.metrics import build_panel
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,34 @@ async def _call_claude(system: str, user: str, max_tokens: int = 1200) -> str:
     return "".join(b.text for b in resp.content if b.type == "text").strip()
 
 
+def _panel_context(panel) -> str:
+    """Добавляет к контексту точки роста / узкие места / прогноз из движка метрик."""
+    parts = []
+    growth = [m.title for m in panel.growth_points]
+    bottleneck = [m.title for m in panel.bottlenecks]
+    if growth:
+        parts.append("Точки роста: " + ", ".join(growth) + ".")
+    if bottleneck:
+        parts.append("Узкие места: " + ", ".join(bottleneck) + ".")
+    if panel.forecast_revenue is not None:
+        parts.append(f"Прогноз выручки на 7 дн: {_num(panel.forecast_revenue)} ₽.")
+    return ("\n" + " ".join(parts)) if parts else ""
+
+
+async def _memory_context(session: AsyncSession, user_tg_id: int) -> str:
+    facts = (
+        await session.scalars(
+            select(AgentMemory)
+            .where(AgentMemory.user_tg_id == user_tg_id)
+            .order_by(AgentMemory.created_at.desc())
+            .limit(15)
+        )
+    ).all()
+    if not facts:
+        return ""
+    return "\n\nЧто помню о бизнесе: " + "; ".join(f.content for f in reversed(facts)) + "."
+
+
 async def daily_brief(session: AsyncSession, user_tg_id: int) -> str:
     """Утренняя сводка: итоги + приоритеты + рецепты. Кэш — раз в сутки."""
     if not settings.ai_enabled:
@@ -100,10 +129,14 @@ async def daily_brief(session: AsyncSession, user_tg_id: int) -> str:
     if summary.orders == 0:
         return NO_DATA_MSG
     net_today = await reports.today_profit(session, user_tg_id)
+    panel = await build_panel(session, user_tg_id, 7)
+    memory = await _memory_context(session, user_tg_id)
 
     user_msg = (
         "Данные бизнеса клиента:\n"
         + build_context(summary, net_today)
+        + _panel_context(panel)
+        + memory
         + "\n\nСоставь короткую утреннюю сводку:\n"
         "1) одна строка — как идут дела (главный итог);\n"
         "2) 3 приоритета на сегодня (нумерованный список, каждый — рецепт "
