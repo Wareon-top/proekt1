@@ -5,11 +5,12 @@ from aiogram.filters.chat_member_updated import (
     IS_NOT_MEMBER,
     ChatMemberUpdatedFilter,
 )
-from aiogram.types import ChatMemberUpdated, Message
+from aiogram.types import CallbackQuery, ChatMemberUpdated, Message
 from sqlalchemy import select
 
 from wareon.db.base import session_factory
 from wareon.db.models import TrackedChat
+from wareon.keyboards import back_menu
 from wareon.services import social
 
 router = Router(name="social")
@@ -91,6 +92,30 @@ async def cmd_channels(message: Message) -> None:
             if stats:
                 blocks.append(social.format_chat_stats(stats))
     await message.answer("\n\n➖➖➖\n\n".join(blocks))
+
+
+@router.callback_query(F.data == "sec:channels")
+async def cb_channels(callback: CallbackQuery) -> None:
+    async with session_factory() as session:
+        chats = (await session.scalars(select(TrackedChat))).all()
+        blocks = []
+        for chat in chats:
+            stats = await social.chat_stats(session, chat.chat_id, days=7)
+            if stats:
+                blocks.append(social.format_chat_stats(stats))
+    if blocks:
+        text = "📣 <b>Подключённые чаты</b>\n\n" + "\n\n➖➖➖\n\n".join(blocks)
+    else:
+        text = (
+            "📣 <b>Соцсети</b>\n\nПока нет подключённых чатов.\n"
+            "Добавь меня в канал или группу администратором — начну считать статистику."
+        )
+    if isinstance(callback.message, Message):
+        try:
+            await callback.message.edit_text(text, reply_markup=back_menu())
+        except Exception:
+            await callback.message.answer(text, reply_markup=back_menu())
+    await callback.answer()
 
 
 @router.message(F.chat.type.in_(GROUP_TYPES), ~F.text.startswith("/"))

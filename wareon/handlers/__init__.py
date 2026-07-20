@@ -9,6 +9,7 @@ from wareon.handlers import (
     pulse,
     qa,
     reports,
+    sale,
     schedule,
     social,
     start,
@@ -18,6 +19,7 @@ from wareon.handlers import (
 
 def setup_routers(dp: Dispatcher) -> None:
     dp.include_router(start.router)
+    dp.include_router(sale.router)
     dp.include_router(business.router)
     dp.include_router(marketplace.router)
     dp.include_router(social.router)

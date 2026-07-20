@@ -7,13 +7,17 @@ from wareon.config import settings
 from wareon.db.base import session_factory
 from wareon.db.models import User
 from wareon.keyboards import (
+    agent_card_kb,
     back_menu,
     features_kb,
     main_menu,
     onboarding_kb,
     panel_period_kb,
     report_kb,
+    sale_card_kb,
     settings_kb,
+    social_card_kb,
+    tables_card_kb,
 )
 from wareon.services import agent, reports
 from wareon.services.metrics import build_panel
@@ -54,19 +58,14 @@ FEATURES = (
 
 AGENT_CARD = (
     "🧠 <b>Ассистент</b>\n\n"
-    "Задай вопрос или дай задачу — посмотрю данные и отвечу по делу.\n\n"
-    "<i>Например:</i>\n"
-    "• как дела за неделю?\n"
-    "• где я теряю деньги?\n"
-    "• заведи метрику доли рекламы\n\n"
-    "Пиши <code>/agent …</code> — или просто сообщением."
+    "Выбери готовый вопрос кнопкой — или напиши свой сообщением "
+    "(<code>/agent …</code> или просто текстом)."
 )
 
 SALE_CARD = (
     "➕ <b>Записать продажу</b>\n\n"
-    "<code>/sale выручка себестоимость источник</code>\n"
-    "Пример: <code>/sale 15000 8000 сайт</code>\n\n"
-    "Пару продаж — и жми 🎛 <b>Пульт</b>, покажу тренды."
+    "Жми <b>«Ввести пошагово»</b> — проведу по шагам.\n"
+    "Или командой: <code>/sale 15000 8000 сайт</code>"
 )
 
 SECTION_HELP = {
@@ -137,12 +136,12 @@ async def cb_main(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "menu:agent")
 async def cb_agent_card(callback: CallbackQuery) -> None:
-    await _edit(callback, AGENT_CARD, back_menu())
+    await _edit(callback, AGENT_CARD, agent_card_kb())
 
 
 @router.callback_query(F.data == "menu:sale")
 async def cb_sale_card(callback: CallbackQuery) -> None:
-    await _edit(callback, SALE_CARD, back_menu())
+    await _edit(callback, SALE_CARD, sale_card_kb())
 
 
 # ── Пульт прямо в меню ────────────────────────────────────────────────────────
@@ -244,7 +243,8 @@ async def cb_set_autonomy(callback: CallbackQuery) -> None:
 async def cb_section(callback: CallbackQuery) -> None:
     section = (callback.data or "").split(":", 1)[1]
     text = SECTION_HELP.get(section)
-    if text:
-        await _edit(callback, text, back_menu())
-    else:
+    if not text:
         await callback.answer()
+        return
+    markup = social_card_kb() if section == "social" else tables_card_kb()
+    await _edit(callback, text, markup)

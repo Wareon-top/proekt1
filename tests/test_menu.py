@@ -40,3 +40,11 @@ def test_onboarding_keyboards():
     assert "onb:features" in _datas(keyboards.onboarding_kb())
     assert "menu:main" in _datas(keyboards.onboarding_kb())
     assert "menu:main" in _datas(keyboards.features_kb())
+
+
+def test_section_cards_have_action_buttons():
+    # разделы больше не тупики — в каждом есть рабочая кнопка
+    assert "ask:week" in _datas(keyboards.agent_card_kb())
+    assert "sale:start" in _datas(keyboards.sale_card_kb())
+    assert "sec:channels" in _datas(keyboards.social_card_kb())
+    assert "sec:tables" in _datas(keyboards.tables_card_kb())

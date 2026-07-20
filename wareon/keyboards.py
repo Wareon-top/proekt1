@@ -40,6 +40,45 @@ def features_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[_btn("🚀 Начать", "menu:main")]])
 
 
+def agent_card_kb() -> InlineKeyboardMarkup:
+    """Раздел «Ассистент» — готовые вопросы одной кнопкой."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("📈 Как дела за неделю?", "ask:week")],
+            [_btn("💸 Где я теряю деньги?", "ask:loss")],
+            [_btn("🎯 Что улучшить первым?", "ask:improve")],
+            [_btn("⬅️ В меню", "menu:main")],
+        ]
+    )
+
+
+def sale_card_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("▶️ Ввести пошагово", "sale:start")],
+            [_btn("⬅️ В меню", "menu:main")],
+        ]
+    )
+
+
+def social_card_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("📋 Подключённые чаты", "sec:channels")],
+            [_btn("⬅️ В меню", "menu:main")],
+        ]
+    )
+
+
+def tables_card_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("📁 Мои таблицы", "sec:tables")],
+            [_btn("⬅️ В меню", "menu:main")],
+        ]
+    )
+
+
 # Совместимость со старым импортом.
 BACK_TO_MENU = back_menu()
 

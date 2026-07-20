@@ -76,6 +76,48 @@ async def cmd_agent(message: Message, command: CommandObject) -> None:
         )
 
 
+QUICK_QUESTIONS = {
+    "week": "Как дела с бизнесом за последнюю неделю? Коротко, по делу.",
+    "loss": "Где я теряю деньги? Найди узкие места и подскажи, что делать.",
+    "improve": "Что улучшить в первую очередь? Дай 3 приоритета.",
+}
+
+
+@router.callback_query(F.data.startswith("ask:"))
+async def cb_quick_ask(callback: CallbackQuery) -> None:
+    if callback.from_user is None or not isinstance(callback.message, Message):
+        await callback.answer()
+        return
+    question = QUICK_QUESTIONS.get((callback.data or "ask:").split(":", 1)[1])
+    if question is None:
+        await callback.answer()
+        return
+    if not settings.ai_enabled:
+        await callback.message.edit_text(agent.ai.DISABLED_MSG, reply_markup=_back_kb())
+        await callback.answer()
+        return
+    await callback.answer()
+    try:
+        await callback.message.edit_text(f"🧠 <i>{question}</i>\n\nДумаю…")
+    except Exception:
+        pass
+    async with session_factory() as session:
+        result = await agent.run_agent(session, callback.from_user.id, question)
+    text = result.text or "…"
+    if result.actions:
+        text += "\n\n<i>Сделал: " + "; ".join(result.actions) + "</i>"
+    try:
+        await callback.message.edit_text(text, reply_markup=_back_kb())
+    except Exception:
+        await callback.message.answer(text, reply_markup=_back_kb())
+
+
+def _back_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="⬅️ В меню", callback_data="menu:main")]]
+    )
+
+
 @router.callback_query(F.data.startswith("pm:"))
 async def cb_pending_metric(callback: CallbackQuery) -> None:
     if callback.data is None or callback.from_user is None:

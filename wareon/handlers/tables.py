@@ -1,10 +1,11 @@
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 
 from wareon.db.base import session_factory
 from wareon.db.models import TableUpload
+from wareon.keyboards import back_menu
 from wareon.services import ingest, tables
 
 router = Router(name="tables")
@@ -92,3 +93,34 @@ async def cmd_tables(message: Message) -> None:
     for u in uploads:
         lines.append(f"• {u.file_name} — {u.created_at.strftime('%d.%m.%Y %H:%M')}")
     await message.answer("\n".join(lines))
+
+
+@router.callback_query(F.data == "sec:tables")
+async def cb_tables(callback: CallbackQuery) -> None:
+    if callback.from_user is None:
+        return
+    async with session_factory() as session:
+        uploads = (
+            await session.scalars(
+                select(TableUpload)
+                .where(TableUpload.user_tg_id == callback.from_user.id)
+                .order_by(TableUpload.created_at.desc())
+                .limit(5)
+            )
+        ).all()
+    if not uploads:
+        text = (
+            "📑 <b>Умные таблицы</b>\n\nТы ещё не загружал таблиц.\n"
+            "Пришли файл <b>.xlsx</b> или <b>.csv</b> — разберу и посчитаю."
+        )
+    else:
+        lines = ["📑 <b>Последние таблицы</b>", ""]
+        for u in uploads:
+            lines.append(f"• {u.file_name} — {u.created_at.strftime('%d.%m.%Y %H:%M')}")
+        text = "\n".join(lines)
+    if isinstance(callback.message, Message):
+        try:
+            await callback.message.edit_text(text, reply_markup=back_menu())
+        except Exception:
+            await callback.message.answer(text, reply_markup=back_menu())
+    await callback.answer()
