@@ -255,3 +255,90 @@ def test_slug_sanitizes():
     assert agent._slug("Доля Рекламы!!!") == "metric"  # кириллица отбрасывается
     assert agent._slug("Ad Share %") == "ad_share"
     assert agent._slug("") == "metric"
+
+
+# ── Руки ИИ: действия ────────────────────────────────────────────────────────
+def _run_with_tool(monkeypatch, uid, tool_name, tool_input):
+    from wareon.db.base import init_db, session_factory
+
+    scripted(
+        monkeypatch,
+        [
+            Resp("tool_use", [tool("t1", tool_name, tool_input)]),
+            Resp("end_turn", [txt("Готово.")]),
+        ],
+    )
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            return await agent.run_agent(s, uid, "сделай")
+
+    return asyncio.run(flow())
+
+
+def test_agent_sets_reminder(monkeypatch):
+    from sqlalchemy import select
+
+    from wareon.db.base import session_factory
+    from wareon.db.models import Reminder
+
+    res = _run_with_tool(monkeypatch, 830001, "set_reminder",
+                         {"text": "написать клиенту", "hour": 10, "minute": 30})
+
+    async def check():
+        async with session_factory() as s:
+            return await s.scalar(select(Reminder).where(Reminder.user_tg_id == 830001))
+
+    rem = asyncio.run(check())
+    assert rem is not None and rem.text == "написать клиенту"
+    assert any("напоминание" in a for a in res.actions)
+
+
+def test_agent_sets_alert(monkeypatch):
+    from sqlalchemy import select
+
+    from wareon.db.base import session_factory
+    from wareon.db.models import AlertSetting
+
+    _run_with_tool(monkeypatch, 830002, "set_alert", {"threshold_pct": 25})
+
+    async def check():
+        async with session_factory() as s:
+            return await s.scalar(select(AlertSetting).where(AlertSetting.user_tg_id == 830002))
+
+    a = asyncio.run(check())
+    assert a is not None and a.margin_threshold_pct == 25
+
+
+def test_agent_schedules_report(monkeypatch):
+    from sqlalchemy import select
+
+    from wareon.db.base import session_factory
+    from wareon.db.models import ReportSubscription
+
+    _run_with_tool(monkeypatch, 830003, "schedule_report", {"kind": "ai", "hour": 9, "minute": 0})
+
+    async def check():
+        async with session_factory() as s:
+            return await s.scalar(
+                select(ReportSubscription).where(ReportSubscription.user_tg_id == 830003)
+            )
+
+    sub = asyncio.run(check())
+    assert sub is not None and sub.kind == "ai"
+
+
+def test_agent_remembers_and_recalls(monkeypatch):
+    from wareon.db.base import init_db, session_factory
+
+    res = _run_with_tool(monkeypatch, 830004, "remember", {"fact": "продаёт чехлы на WB"})
+    assert any("запомнил" in a for a in res.actions)
+
+    async def recall():
+        await init_db()
+        async with session_factory() as s:
+            return await agent._load_memory(s, 830004)
+
+    mem = asyncio.run(recall())
+    assert "чехлы на WB" in mem

@@ -9,7 +9,7 @@ from aiogram.types import BufferedInputFile
 from sqlalchemy import select
 
 from wareon.db.base import session_factory
-from wareon.db.models import ReportSubscription
+from wareon.db.models import Reminder, ReportSubscription
 from wareon.services import ai, reports
 
 MSK = timezone(timedelta(hours=3))
@@ -73,10 +73,35 @@ async def process_due_subscriptions(bot: Bot) -> int:
     return sent
 
 
+async def process_due_reminders(bot: Bot) -> int:
+    """Отправляет разовые напоминания, чей срок наступил. Возвращает число отправок."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    sent = 0
+    async with session_factory() as session:
+        due = (
+            await session.scalars(
+                select(Reminder).where(
+                    Reminder.done == False,  # noqa: E712 — SQL
+                    Reminder.next_run_at <= now,
+                )
+            )
+        ).all()
+        for rem in due:
+            try:
+                await bot.send_message(rem.user_tg_id, "⏰ Напоминание\n\n" + rem.text)
+                sent += 1
+            except Exception:
+                logger.exception("Не удалось отправить напоминание %s", rem.id)
+            rem.done = True
+        await session.commit()
+    return sent
+
+
 async def scheduler_loop(bot: Bot) -> None:
     while True:
         try:
             await process_due_subscriptions(bot)
+            await process_due_reminders(bot)
         except Exception:
             logger.exception("Ошибка планировщика")
         await asyncio.sleep(CHECK_INTERVAL_SEC)

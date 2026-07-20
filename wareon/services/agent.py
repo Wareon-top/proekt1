@@ -14,19 +14,30 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from datetime import datetime, timezone
+
 from wareon.config import settings
-from wareon.db.models import AgentSetting, CustomMetric
-from wareon.services import ai
+from wareon.db.models import (
+    AgentMemory,
+    AgentSetting,
+    AlertSetting,
+    CustomMetric,
+    Reminder,
+    ReportSubscription,
+    TableUpload,
+)
+from wareon.services import ai, reports
 from wareon.services.knowledge import BUSINESS_KNOWLEDGE
 from wareon.services.metrics import build_panel
 from wareon.services.metrics.formula import FormulaError, validate_expression
 from wareon.services.metrics.panel import STATUS_BOTTLENECK, STATUS_GROWTH, Panel
+from wareon.services.scheduler import next_run
 
 logger = logging.getLogger(__name__)
 
 AUTONOMY_LEVELS = {"autopilot", "semi", "manual"}
 DEFAULT_AUTONOMY = "semi"
-MAX_STEPS = 6
+MAX_STEPS = 8
 
 # Переменные, доступные формулам метрик (совпадают с движком метрик).
 BASE_VARS = {"revenue", "cost", "profit", "orders", "days", "ad_spend", "visitors"}
@@ -36,11 +47,16 @@ ROLE = """\
 ведёшь: сам смотришь данные через инструменты, находишь точки роста и узкие места,
 заводишь метрики и говоришь, что делать.
 
+Ты не только советуешь — ты действуешь: заводишь метрики, ставишь алерты и
+напоминания, подписываешь на отчёты, запоминаешь важное о бизнесе.
+
 Правила:
 - Прежде чем судить о бизнесе, посмотри пульт через get_panel. Опирайся только на
   реальные цифры клиента, не выдумывай.
-- Если для ответа нужна метрика, которой нет в пульте, — заведи её через add_metric
-  (безопасная формула из базовых переменных).
+- Если для ответа нужна метрика, которой нет, — заведи её через add_metric.
+- Узнал важный факт о бизнесе (ниша, товары, предпочтения) — сохрани через remember.
+- Просят напомнить/следить/присылать отчёт — используй set_reminder, set_alert,
+  schedule_report, а не обещай на словах.
 - Пиши коротко, по-деловому, на русском, на «ты». Без воды.
 - Проблему подавай рецептом: Симптом → Причина → Действие.
 """
@@ -88,6 +104,82 @@ TOOLS = [
                 },
             },
             "required": ["key", "title", "formula", "direction"],
+        },
+    },
+    {
+        "name": "get_report",
+        "description": (
+            "Детальная сводка по продажам за период: выручка, прибыль, маржа, средний "
+            "чек, топ товаров, разрез по источникам. Для развёрнутого отчёта."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"days": {"type": "integer"}},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_table",
+        "description": (
+            "Читает последнюю загруженную клиентом таблицу (её разбор: колонки, суммы). "
+            "Используй, если вопрос про загруженный файл или таблицу."
+        ),
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "remember",
+        "description": (
+            "Сохраняет важный факт о бизнесе клиента в долговременную память "
+            "(ниша, товары, предпочтения, договорённости) — пригодится в будущих разговорах."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"fact": {"type": "string"}},
+            "required": ["fact"],
+        },
+    },
+    {
+        "name": "set_alert",
+        "description": (
+            "Ставит алерт по марже: бот предупредит, если маржа за сутки упадёт ниже "
+            "порога (в процентах)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"threshold_pct": {"type": "number"}},
+            "required": ["threshold_pct"],
+        },
+    },
+    {
+        "name": "schedule_report",
+        "description": (
+            "Подписывает клиента на регулярный отчёт. kind: daily — ежедневный, "
+            "weekly — еженедельный (по понедельникам), ai — утренняя ИИ-сводка. Время МСК."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string", "enum": ["daily", "weekly", "ai"]},
+                "hour": {"type": "integer"},
+                "minute": {"type": "integer"},
+            },
+            "required": ["kind", "hour"],
+        },
+    },
+    {
+        "name": "set_reminder",
+        "description": (
+            "Ставит разовое напоминание: бот напишет клиенту текст в ближайшее "
+            "наступление указанного времени (МСК)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "text": {"type": "string"},
+                "hour": {"type": "integer"},
+                "minute": {"type": "integer"},
+            },
+            "required": ["text", "hour"],
         },
     },
 ]
@@ -223,10 +315,109 @@ async def _tool_add_metric(ctx: _Ctx, args: dict) -> str:
     return f"Метрика «{title}» заведена и уже считается в пульте."
 
 
+async def _tool_get_report(ctx: _Ctx, args: dict) -> str:
+    days = max(1, min(int(args.get("days") or 7), 365))
+    summary = await reports.sales_summary(ctx.session, ctx.uid, days)
+    if summary.orders == 0:
+        return "Продаж за период нет."
+    return reports.format_summary(summary)
+
+
+async def _tool_get_table(ctx: _Ctx, args: dict) -> str:
+    row = await ctx.session.scalar(
+        select(TableUpload)
+        .where(TableUpload.user_tg_id == ctx.uid)
+        .order_by(TableUpload.created_at.desc())
+    )
+    if row is None:
+        return "Клиент не загружал таблиц."
+    return f"Последняя таблица «{row.file_name}»:\n{row.summary}"
+
+
+async def _tool_remember(ctx: _Ctx, args: dict) -> str:
+    fact = str(args.get("fact", "")).strip()
+    if not fact:
+        return "Пустой факт — нечего запоминать."
+    ctx.session.add(AgentMemory(user_tg_id=ctx.uid, content=fact[:500]))
+    await ctx.session.commit()
+    ctx.actions.append("запомнил факт о бизнесе")
+    return "Запомнил."
+
+
+async def _tool_set_alert(ctx: _Ctx, args: dict) -> str:
+    try:
+        threshold = float(args.get("threshold_pct"))
+    except (TypeError, ValueError):
+        return "Порог должен быть числом процентов."
+    if not 0 < threshold < 100:
+        return "Порог — от 0 до 100%."
+    existing = await ctx.session.scalar(
+        select(AlertSetting).where(AlertSetting.user_tg_id == ctx.uid)
+    )
+    if existing:
+        existing.margin_threshold_pct = threshold
+    else:
+        ctx.session.add(AlertSetting(user_tg_id=ctx.uid, margin_threshold_pct=threshold))
+    await ctx.session.commit()
+    ctx.actions.append(f"поставил алерт по марже < {threshold:g}%")
+    return f"Алерт поставлен: предупрежу, если маржа за сутки упадёт ниже {threshold:g}%."
+
+
+async def _tool_schedule_report(ctx: _Ctx, args: dict) -> str:
+    kind = str(args.get("kind", "")).strip()
+    if kind not in ("daily", "weekly", "ai"):
+        return "kind должен быть daily, weekly или ai."
+    hour = int(args.get("hour") or 9)
+    minute = int(args.get("minute") or 0)
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return "Некорректное время."
+    now = datetime.now(timezone.utc)
+    run_at = next_run(kind, hour, minute, now).replace(tzinfo=None)
+    existing = await ctx.session.scalar(
+        select(ReportSubscription).where(
+            ReportSubscription.user_tg_id == ctx.uid, ReportSubscription.kind == kind
+        )
+    )
+    if existing:
+        existing.hour, existing.minute, existing.next_run_at = hour, minute, run_at
+    else:
+        ctx.session.add(
+            ReportSubscription(
+                user_tg_id=ctx.uid, kind=kind, hour=hour, minute=minute, next_run_at=run_at
+            )
+        )
+    await ctx.session.commit()
+    names = {"daily": "ежедневный отчёт", "weekly": "недельный отчёт", "ai": "утреннюю ИИ-сводку"}
+    ctx.actions.append(f"подписал на {names[kind]} в {hour:02d}:{minute:02d} МСК")
+    return f"Подписал на {names[kind]} — {hour:02d}:{minute:02d} МСК."
+
+
+async def _tool_set_reminder(ctx: _Ctx, args: dict) -> str:
+    text = str(args.get("text", "")).strip()
+    if not text:
+        return "Пустой текст напоминания."
+    hour = int(args.get("hour") or 9)
+    minute = int(args.get("minute") or 0)
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return "Некорректное время."
+    now = datetime.now(timezone.utc)
+    run_at = next_run("daily", hour, minute, now).replace(tzinfo=None)
+    ctx.session.add(Reminder(user_tg_id=ctx.uid, text=text[:500], next_run_at=run_at))
+    await ctx.session.commit()
+    ctx.actions.append(f"поставил напоминание на {hour:02d}:{minute:02d}")
+    return f"Напоминание поставлено на {hour:02d}:{minute:02d} МСК."
+
+
 _TOOLS = {
     "get_panel": _tool_get_panel,
     "list_metrics": _tool_list_metrics,
     "add_metric": _tool_add_metric,
+    "get_report": _tool_get_report,
+    "get_table": _tool_get_table,
+    "remember": _tool_remember,
+    "set_alert": _tool_set_alert,
+    "schedule_report": _tool_schedule_report,
+    "set_reminder": _tool_set_reminder,
 }
 
 
@@ -265,13 +456,30 @@ def _text_of(response) -> str:
     ).strip()
 
 
+async def _load_memory(session: AsyncSession, user_tg_id: int) -> str:
+    """Персональная память клиента — подаётся в контекст перед вопросом."""
+    facts = (
+        await session.scalars(
+            select(AgentMemory)
+            .where(AgentMemory.user_tg_id == user_tg_id)
+            .order_by(AgentMemory.created_at.desc())
+            .limit(20)
+        )
+    ).all()
+    if not facts:
+        return ""
+    lines = "\n".join(f"- {f.content}" for f in reversed(facts))
+    return f"Что я помню о бизнесе клиента:\n{lines}\n\n"
+
+
 async def run_agent(session: AsyncSession, user_tg_id: int, user_message: str) -> AgentResult:
     """Гоняет ИИ-оркестратор: думает, зовёт инструменты, отвечает."""
     if not settings.ai_enabled:
         return AgentResult(ai.DISABLED_MSG)
     level = await get_autonomy(session, user_tg_id)
     ctx = _Ctx(session=session, uid=user_tg_id, level=level)
-    messages: list[dict] = [{"role": "user", "content": user_message}]
+    memory = await _load_memory(session, user_tg_id)
+    messages: list[dict] = [{"role": "user", "content": memory + user_message}]
 
     for _ in range(MAX_STEPS):
         try:

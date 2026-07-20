@@ -50,6 +50,27 @@ class _FakeBot:
         self.sent.append(("photo", None))
 
 
+def test_scheduler_sends_due_reminder():
+    from wareon.db.base import init_db, session_factory
+    from wareon.db.models import Reminder
+    from wareon.services import scheduler
+
+    bot = _FakeBot()
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            s.add(Reminder(user_tg_id=7007, text="позвонить поставщику", next_run_at=datetime(2000, 1, 1)))
+            s.add(Reminder(user_tg_id=7007, text="будущее", next_run_at=datetime(2999, 1, 1)))
+            await s.commit()
+        return await scheduler.process_due_reminders(bot)
+
+    sent = asyncio.run(flow())
+    assert sent == 1
+    assert any("позвонить поставщику" in t for who, t in bot.sent if who == 7007)
+    assert not any("будущее" in t for who, t in bot.sent)
+
+
 def test_scheduler_sends_ai_brief(monkeypatch):
     from wareon.db.base import init_db, session_factory
     from wareon.db.models import ReportSubscription

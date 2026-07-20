@@ -133,6 +133,31 @@ class CustomMetric(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class AgentMemory(Base):
+    """Персональная память ассистента: факты о бизнесе клиента, предпочтения,
+    решения. Читается при каждом обращении и питает персонализацию."""
+
+    __tablename__ = "agent_memory"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Reminder(Base):
+    """Разовое напоминание, которое ассистент ставит по просьбе клиента."""
+
+    __tablename__ = "reminders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    text: Mapped[str] = mapped_column(String(500))
+    next_run_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AgentSetting(Base):
     """Уровень автономии ИИ-оркестратора для клиента (Раздел 2 «Управляемо»)."""
 
