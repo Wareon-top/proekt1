@@ -6,10 +6,15 @@
 <title>Wareon — ИИ бизнес-ассистент</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  :root{
+  :root, :root[data-theme="dark"]{
     --bg:#0b0b0d; --card:#141418; --card2:#1b1b21; --line:#26262e;
     --txt:#f4f2ec; --dim:#9b9aa4; --gold:#d9b45b; --gold2:#f0d488;
     --green:#4fbf7a; --red:#e2695f; --flat:#6d6d78; --nav:#101014;
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f2ec; --card:#ffffff; --card2:#faf9f4; --line:#e6e3da;
+    --txt:#1a1a1f; --dim:#7c7b85; --gold:#b8892b; --gold2:#d9b45b;
+    --green:#1f7a54; --red:#c2410c; --flat:#9a988f; --nav:#ffffff;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--txt);
@@ -21,8 +26,10 @@
   .between{justify-content:space-between}
   .muted{color:var(--dim)}
   /* header */
-  header{position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg),rgba(11,11,13,.85));
-    backdrop-filter:blur(8px);padding:12px 14px 8px}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);
+    border-bottom:1px solid var(--line);padding:12px 14px 8px}
+  .theme-btn{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:10px;
+    width:36px;height:32px;font-size:15px;cursor:pointer}
   .logo{font-size:20px;font-weight:700;letter-spacing:.5px}
   .logo b{color:var(--gold)}
   .sub{font-size:11px;color:var(--dim)}
@@ -107,9 +114,12 @@
       <div class="logo">War<b>e</b>on</div>
       <div class="sub">ИИ бизнес-ассистент</div>
     </div>
-    <div class="toggle" id="period">
-      <button data-days="7" class="on">7 дн</button>
-      <button data-days="30">30 дн</button>
+    <div class="row" style="gap:8px">
+      <div class="toggle" id="period">
+        <button data-days="7" class="on">7 дн</button>
+        <button data-days="30">30 дн</button>
+      </div>
+      <button class="theme-btn" id="theme" title="Тема">🌙</button>
     </div>
   </header>
 
@@ -294,6 +304,17 @@ document.getElementById('mode').addEventListener('click',e=>{
 document.getElementById('send').onclick=()=>ask(document.getElementById('inp').value.trim());
 document.getElementById('inp').addEventListener('keydown',e=>{ if(e.key==='Enter')ask(e.target.value.trim()); });
 document.getElementById('quick').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b)ask(b.dataset.q); });
+
+// ── тема ────────────────────────────────────────────
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('theme').textContent = t==='dark' ? '🌙' : '☀️';
+  localStorage.setItem('wareon_theme',t);
+}
+document.getElementById('theme').onclick=()=>{
+  applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
+};
+applyTheme(localStorage.getItem('wareon_theme')||'dark');
 
 if(!initData && !DEV){
   document.getElementById('banner').innerHTML='<div class="banner">Открой из Telegram, чтобы увидеть свои данные. Для теста — <code>?dev_user_id=…</code></div>';

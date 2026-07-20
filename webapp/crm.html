@@ -118,6 +118,7 @@
     <input class="search" id="search" placeholder="🔍 Поиск: имя, контакт, заметка…" oninput="render()">
     <button class="btn bg" onclick="document.getElementById('imp').click()">Импорт</button>
     <button class="btn bg" onclick="exportCSV()">Экспорт</button>
+    <button class="btn bp" onclick="syncWareon()">📤 В Wareon</button>
     <input type="file" id="imp" accept=".csv" style="display:none" onchange="importCSV(event)">
   </div>
 
@@ -313,6 +314,19 @@ function parseCSVLine(line,sep){
     else { if(ch==='"')q=true; else if(ch===sep){out.push(cur);cur="";} else cur+=ch; }
   }
   out.push(cur); return out;
+}
+
+/* ── синхронизация с Wareon (без API, через Telegram) ── */
+function syncWareon(){
+  const paid=rows.filter(r=>r.status==="Оплата получена" && (parseFloat(r.amount)||0)>0);
+  if(!paid.length){ alert("Нет оплаченных сделок. Отмечу оплату — и отправлю в аналитику."); return; }
+  const payload={type:"crm_paid",leads:paid.slice(0,200).map(r=>({
+    name:(r.name||"").slice(0,80), amount:parseFloat(r.amount)||0, date:r.orderDate||r.deadline||""}))};
+  if(tg && tg.sendData){
+    tg.sendData(JSON.stringify(payload)); // закроет Web App; бот получит данные и заведёт оплаты
+  } else {
+    alert("Открой таблицу из бота командой /crm (кнопкой снизу) — тогда смогу отправить оплаты в аналитику Wareon.");
+  }
 }
 
 /* ── theme ── */

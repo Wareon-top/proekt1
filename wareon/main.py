@@ -12,6 +12,7 @@ BOT_COMMANDS = [
     BotCommand(command="pulse", description="🎛 Пульт метрик"),
     BotCommand(command="report", description="📋 Отчёт по продажам"),
     BotCommand(command="sale", description="➕ Записать продажу"),
+    BotCommand(command="crm", description="🗂 Таблица клиентов"),
     BotCommand(command="autonomy", description="⚙️ Автономия ИИ"),
     BotCommand(command="subscribe", description="🗓 Регулярные отчёты"),
     BotCommand(command="alert", description="⚠️ Алерт по марже"),
