@@ -1,6 +1,6 @@
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import BufferedInputFile, CallbackQuery, Message
 from sqlalchemy import select
 
 from wareon.config import settings
@@ -8,7 +8,6 @@ from wareon.db.base import session_factory
 from wareon.db.models import User
 from wareon.keyboards import (
     agent_card_kb,
-    back_menu,
     features_kb,
     main_menu,
     onboarding_kb,
@@ -18,15 +17,15 @@ from wareon.keyboards import (
     social_card_kb,
     tables_card_kb,
 )
-from wareon.services import agent, reports
+from wareon.services import agent, branding, reports
 
 router = Router(name="start")
 
 # ── Тексты (единый голос: коротко, на «ты», по делу) ─────────────────────────
 MENU = (
-    "<b>Wareon</b> — ИИ-ассистент твоего бизнеса.\n"
+    "<b>Главное меню</b>\n"
     "Вижу цифры, нахожу рост и узкие места, подсказываю шаг.\n\n"
-    "Выбирай 👇"
+    "Выбирай ниже 👇"
 )
 
 DASHBOARD_HINT = "\n\n✨ «Открыть дашборд» — вся глубина в одном экране."
@@ -72,15 +71,14 @@ SECTION_HELP = {
         "Добавь меня в канал или группу администратором — начну считать посты, "
         "сообщения, подписки и отписки.\n\n"
         "• В группе — <code>/stats</code>\n"
-        "• Здесь — <code>/channels</code>, список подключённых чатов\n\n"
+        "• Здесь — «Подключённые чаты» ниже\n\n"
         "<i>Другие соцсети — на подходе.</i>"
     ),
     "tables": (
         "📑 <b>Умные таблицы</b>\n\n"
         "Пришли файл <b>.xlsx</b> или <b>.csv</b> — разберу структуру, посчитаю "
         "суммы и средние, найду топ и пустые ячейки.\n\n"
-        "Потом спрашивай текстом: «сумма выручки», «топ товаров».\n\n"
-        "<code>/tables</code> — история загрузок"
+        "Потом спрашивай текстом: «сумма выручки», «топ товаров»."
     ),
 }
 
@@ -91,12 +89,34 @@ AUTONOMY_TITLES = {
 }
 
 
-async def _edit(callback: CallbackQuery, text: str, markup) -> None:
-    if isinstance(callback.message, Message):
+# ── Брендовая карточка меню (баннер-шапка + подпись + кнопки) ─────────────────
+def _banner() -> BufferedInputFile:
+    return BufferedInputFile(branding.menu_banner_png(), "wareon.png")
+
+
+async def _send_card(message: Message, caption: str, markup) -> None:
+    await message.answer_photo(_banner(), caption=caption, reply_markup=markup)
+
+
+async def _edit_card(callback: CallbackQuery, caption: str, markup) -> None:
+    """Меняет подпись брендовой карточки на месте; если нельзя — шлёт новую."""
+    msg = callback.message
+    if isinstance(msg, Message):
         try:
-            await callback.message.edit_text(text, reply_markup=markup)
+            await msg.edit_caption(caption=caption, reply_markup=markup)
         except Exception:
-            await callback.message.answer(text, reply_markup=markup)
+            await msg.answer_photo(_banner(), caption=caption, reply_markup=markup)
+    await callback.answer()
+
+
+async def _text_out(callback: CallbackQuery, text: str, markup) -> None:
+    """Отдельное текстовое сообщение (отчёт) — не подпись под баннером."""
+    msg = callback.message
+    if isinstance(msg, Message):
+        try:
+            await msg.edit_text(text, reply_markup=markup)
+        except Exception:
+            await msg.answer(text, reply_markup=markup)
     await callback.answer()
 
 
@@ -112,40 +132,42 @@ async def cmd_start(message: Message) -> None:
                 session.add(User(tg_id=message.from_user.id, username=message.from_user.username))
                 await session.commit()
     if is_new:
-        await message.answer(ONBOARDING, reply_markup=onboarding_kb())
+        await _send_card(message, ONBOARDING, onboarding_kb())
     else:
-        await message.answer(welcome_text(), reply_markup=main_menu())
+        await _send_card(message, welcome_text(), main_menu())
 
 
 @router.message(Command("help"))
 async def cmd_help(message: Message) -> None:
-    await message.answer(FEATURES, reply_markup=main_menu())
+    await _send_card(message, FEATURES, main_menu())
 
 
 @router.callback_query(F.data == "onb:features")
 async def cb_features(callback: CallbackQuery) -> None:
-    await _edit(callback, FEATURES, features_kb())
+    await _edit_card(callback, FEATURES, features_kb())
 
 
 @router.callback_query(F.data == "menu:main")
 async def cb_main(callback: CallbackQuery) -> None:
-    await _edit(callback, welcome_text(), main_menu())
+    if isinstance(callback.message, Message):
+        await _send_card(callback.message, welcome_text(), main_menu())
+    await callback.answer()
 
 
 @router.callback_query(F.data == "menu:agent")
 async def cb_agent_card(callback: CallbackQuery) -> None:
-    await _edit(callback, AGENT_CARD, agent_card_kb())
+    await _edit_card(callback, AGENT_CARD, agent_card_kb())
 
 
 @router.callback_query(F.data == "menu:sale")
 async def cb_sale_card(callback: CallbackQuery) -> None:
-    await _edit(callback, SALE_CARD, sale_card_kb())
+    await _edit_card(callback, SALE_CARD, sale_card_kb())
 
 
 # (Пульт обрабатывает handlers/pulse.py — фото-график + подпись)
 
 
-# ── Отчёт прямо в меню ────────────────────────────────────────────────────────
+# ── Отчёт ─────────────────────────────────────────────────────────────────────
 async def _render_report(callback: CallbackQuery, days: int) -> None:
     if callback.from_user is None:
         return
@@ -162,7 +184,7 @@ async def _render_report(callback: CallbackQuery, days: int) -> None:
             "🗓 Авто-сводки: <code>/subscribe daily 09:00</code> · "
             "алерт: <code>/alert 20</code>"
         )
-    await _edit(callback, text, report_kb())
+    await _text_out(callback, text, report_kb())
 
 
 @router.callback_query(F.data == "menu:report")
@@ -196,7 +218,7 @@ async def cb_settings(callback: CallbackQuery) -> None:
         return
     async with session_factory() as session:
         level = await agent.get_autonomy(session, callback.from_user.id)
-    await _edit(callback, _settings_text(level), settings_kb(level))
+    await _edit_card(callback, _settings_text(level), settings_kb(level))
 
 
 @router.callback_query(F.data.startswith("auto:"))
@@ -209,7 +231,7 @@ async def cb_set_autonomy(callback: CallbackQuery) -> None:
         return
     async with session_factory() as session:
         await agent.set_autonomy(session, callback.from_user.id, level)
-    await _edit(callback, _settings_text(level), settings_kb(level))
+    await _edit_card(callback, _settings_text(level), settings_kb(level))
 
 
 # ── Разделы-справки (соцсети, таблицы) ────────────────────────────────────────
@@ -221,4 +243,4 @@ async def cb_section(callback: CallbackQuery) -> None:
         await callback.answer()
         return
     markup = social_card_kb() if section == "social" else tables_card_kb()
-    await _edit(callback, text, markup)
+    await _edit_card(callback, text, markup)
