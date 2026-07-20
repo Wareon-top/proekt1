@@ -1,6 +1,6 @@
 import pytest
 
-from wareon.handlers.pulse import _parse_args, format_panel
+from wareon.handlers.pulse import _parse_args, format_panel, pulse_caption
 from wareon.services.metrics.panel import (
     STATUS_BOTTLENECK,
     STATUS_GROWTH,
@@ -49,28 +49,33 @@ class TestFormatPanel:
             forecast_revenue=19200.0,
         )
 
-    def test_contains_title_and_areas(self):
+    # ── Полный список метрик (format_panel) ─────────────────────────────────
+    def test_full_contains_title_and_areas(self):
         text = format_panel(self._panel())
         assert "Пульт · 7 дн" in text
         assert "Финансы" in text
         assert "Маркетинг" in text
 
-    def test_has_verdict_line(self):
-        # есть и рост, и узкое место → соответствующий вердикт
-        text = format_panel(self._panel())
-        assert "Растёшь" in text
+    def test_full_has_verdict(self):
+        assert "Растёшь" in format_panel(self._panel())
 
-    def test_growth_and_bottleneck_sections(self):
+    def test_full_na_hidden_with_hint(self):
         text = format_panel(self._panel())
-        assert "Точки роста" in text and "Выручка" in text
-        assert "Узкие места" in text and "Себестоимость" in text
+        assert "нет данных" not in text
+        assert "ждут данных" in text
 
-    def test_na_metrics_hidden_with_hint(self):
-        text = format_panel(self._panel())
-        assert "нет данных" not in text          # пустые метрики скрыты
-        assert "ждут данных" in text             # но есть подсказка, как их включить
+    def test_full_custom_tag(self):
+        assert "🤖" in format_panel(self._panel())
 
-    def test_custom_tag_and_forecast(self):
-        text = format_panel(self._panel())
-        assert "🤖" in text  # кастомная метрика помечена
-        assert "Прогноз" in text and "19 200" in text
+    # ── Сжатая подпись под графиком (pulse_caption) ─────────────────────────
+    def test_caption_verdict_and_kpis(self):
+        cap = pulse_caption(self._panel())
+        assert "Растёшь" in cap
+        assert "Выручка" in cap and "Прибыль" not in cap  # прибыли нет в фикстуре
+        assert "12 000 ₽" in cap
+
+    def test_caption_growth_bottleneck_forecast(self):
+        cap = pulse_caption(self._panel())
+        assert "Рост:" in cap and "Выручка" in cap
+        assert "Узко:" in cap and "Себестоимость" in cap
+        assert "Прогноз" in cap and "19 200" in cap

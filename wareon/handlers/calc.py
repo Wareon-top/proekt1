@@ -246,5 +246,6 @@ async def collect(message: Message, state: FSMContext) -> None:
         )
         return
     await message.answer(
-        f"{calc.emoji} <b>{calc.title}</b>\n\n{body}", reply_markup=_after_kb(calc.key)
+        f"{calc.emoji} <b>{calc.title}</b>\n<blockquote>{body}</blockquote>",
+        reply_markup=_after_kb(calc.key),
     )

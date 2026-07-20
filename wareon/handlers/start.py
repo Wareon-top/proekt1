@@ -12,7 +12,6 @@ from wareon.keyboards import (
     features_kb,
     main_menu,
     onboarding_kb,
-    panel_period_kb,
     report_kb,
     sale_card_kb,
     settings_kb,
@@ -20,7 +19,6 @@ from wareon.keyboards import (
     tables_card_kb,
 )
 from wareon.services import agent, reports
-from wareon.services.metrics import build_panel
 
 router = Router(name="start")
 
@@ -144,31 +142,7 @@ async def cb_sale_card(callback: CallbackQuery) -> None:
     await _edit(callback, SALE_CARD, sale_card_kb())
 
 
-# ── Пульт прямо в меню ────────────────────────────────────────────────────────
-async def _render_panel(callback: CallbackQuery, days: int) -> None:
-    from wareon.handlers.pulse import PULSE_EMPTY, format_panel
-
-    if callback.from_user is None:
-        return
-    async with session_factory() as session:
-        panel = await build_panel(session, callback.from_user.id, days=days)
-    revenue = next((m for m in panel.metrics if m.key == "revenue"), None)
-    text = PULSE_EMPTY if (revenue is None or not revenue.value) else format_panel(panel)
-    await _edit(callback, text, panel_period_kb())
-
-
-@router.callback_query(F.data == "menu:pulse")
-async def cb_pulse(callback: CallbackQuery) -> None:
-    await _render_panel(callback, 7)
-
-
-@router.callback_query(F.data.startswith("pulse:"))
-async def cb_pulse_period(callback: CallbackQuery) -> None:
-    try:
-        days = int((callback.data or "pulse:7").split(":")[1])
-    except ValueError:
-        days = 7
-    await _render_panel(callback, days)
+# (Пульт обрабатывает handlers/pulse.py — фото-график + подпись)
 
 
 # ── Отчёт прямо в меню ────────────────────────────────────────────────────────
