@@ -29,6 +29,18 @@ class Settings(BaseSettings):
         return self.webapp_url.startswith("https://")
 
     @property
+    def crm_url(self) -> str:
+        """Адрес CRM-таблицы (webapp/crm.html) рядом с дашбордом."""
+        base = self.webapp_url.rstrip()
+        if not base:
+            return ""
+        if base.endswith(".html"):
+            base = base.rsplit("/", 1)[0] + "/"
+        elif not base.endswith("/"):
+            base += "/"
+        return base + "crm.html"
+
+    @property
     def webapp_launch_url(self) -> str:
         """Адрес дашборда с приклеенным ?api=<api_public_url>, если тот задан."""
         base = self.webapp_url.rstrip()

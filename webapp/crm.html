@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Wareon · Таблица клиентов</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+  :root, :root[data-theme="light"]{
+    --bg:#f5f3ec; --cd:#ffffff; --cd2:#faf8f2; --ink:#191b16; --mu:#7c8079;
+    --ln:#e4e1d6; --ac:#b8892b; --ac-s:#f3ead4; --shadow:0 1px 2px rgba(0,0,0,.04);
+    --red:#c2410c; --red-s:#fbe9df; --green:#1f7a54; --green-s:#e5f2ec;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d0d10; --cd:#16161b; --cd2:#1b1b21; --ink:#f2f0ea; --mu:#93929c;
+    --ln:#292933; --ac:#e0be6a; --ac-s:#2a2417; --shadow:0 1px 2px rgba(0,0,0,.3);
+    --red:#e2695f; --red-s:#3a221d; --green:#4fbf7a; --green-s:#1c2f24;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);
+    font-family:'Manrope',system-ui,-apple-system,sans-serif;
+    padding:14px 12px calc(80px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1400px;margin:0 auto}
+  /* header */
+  .hd{display:flex;justify-content:space-between;align-items:center;
+    padding-bottom:12px;border-bottom:1px solid var(--ln);margin-bottom:14px;gap:10px}
+  h1{font-size:19px;font-weight:800;letter-spacing:-.4px;line-height:1.1}
+  h1 .g{color:var(--ac)}
+  .sub{font-size:11px;color:var(--mu);font-weight:600;margin-top:2px}
+  .hd-r{display:flex;align-items:center;gap:8px}
+  .saved{font-size:11px;color:var(--green);font-weight:700;opacity:0;transition:opacity .3s}
+  .saved.on{opacity:1}
+  .icon-btn{border:1px solid var(--ln);background:var(--cd);color:var(--ink);border-radius:10px;
+    width:38px;height:34px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  /* kpi */
+  .kpi{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+  .kpi::-webkit-scrollbar{display:none}
+  .kc{background:var(--cd);border:1px solid var(--ln);border-radius:12px;padding:10px 13px;
+    min-width:84px;flex:0 0 auto;box-shadow:var(--shadow)}
+  .kc .kv{font-size:19px;font-weight:800;line-height:1}
+  .kc .kl{font-size:9.5px;color:var(--mu);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:5px}
+  .kc.green .kv{color:var(--green)} .kc.red .kv{color:var(--red)} .kc.gold .kv{color:var(--ac)}
+  /* toolbar */
+  .tb{display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+  .btn{font-family:inherit;border:none;border-radius:10px;padding:9px 14px;font-weight:700;font-size:12.5px;cursor:pointer}
+  .btn:active{transform:scale(.98)}
+  .bp{background:var(--ac);color:#fff}
+  :root[data-theme="dark"] .bp{color:#20180a}
+  .bg{background:var(--cd);color:var(--ink);border:1px solid var(--ln)}
+  .search{font-family:inherit;font-size:12.5px;border:1px solid var(--ln);border-radius:10px;
+    padding:9px 12px;background:var(--cd);color:var(--ink);outline:none;flex:1;min-width:150px}
+  .search:focus{border-color:var(--ac)}
+  /* pills */
+  .pills{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+  .pills::-webkit-scrollbar{display:none}
+  .pill{font-family:inherit;font-size:11px;font-weight:700;border:1px solid var(--ln);border-radius:20px;
+    padding:5px 12px;cursor:pointer;background:var(--cd);color:var(--mu);white-space:nowrap;flex:0 0 auto}
+  .pill.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+  :root[data-theme="dark"] .pill.on{color:#20180a}
+  /* table (desktop) */
+  .tw{background:var(--cd);border:1px solid var(--ln);border-radius:14px;overflow-x:auto;box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;min-width:1180px}
+  thead th{background:var(--cd2);color:var(--mu);font-size:9.5px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.5px;text-align:left;padding:10px 8px;white-space:nowrap;cursor:pointer;user-select:none;
+    border-bottom:1px solid var(--ln)}
+  tbody tr{border-bottom:1px solid var(--ln)}
+  tbody tr:hover{background:var(--cd2)}
+  tbody tr.overdue{background:var(--red-s)}
+  td{padding:2px 5px;vertical-align:middle}
+  td input,td textarea,td select{width:100%;border:1px solid transparent;background:transparent;
+    font-family:inherit;font-size:12px;padding:6px 7px;border-radius:7px;color:var(--ink);font-weight:500;outline:none;resize:none}
+  td input:focus,td textarea:focus,td select:focus{border-color:var(--ac);background:var(--bg)}
+  td textarea{min-height:32px;line-height:1.3}
+  .pill-sel{border-radius:20px!important;text-align:center;padding:5px 8px!important;font-size:10.5px!important;font-weight:700!important;appearance:none;border:none!important;cursor:pointer}
+  .rub{position:relative}.rub input{padding-right:16px!important;text-align:right}
+  .rub::after{content:"₽";position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--mu);pointer-events:none}
+  .del{background:none;border:none;color:var(--mu);cursor:pointer;font-size:15px;padding:4px;border-radius:6px;line-height:1;opacity:.6}
+  .del:hover{color:var(--red);background:var(--red-s);opacity:1}
+  /* cards (mobile) */
+  .cards{display:none;flex-direction:column;gap:10px}
+  .card{background:var(--cd);border:1px solid var(--ln);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
+  .card.overdue{border-color:var(--red)}
+  .card-top{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
+  .card-top input.nm{flex:1;font-size:15px;font-weight:700;border:none;background:transparent;color:var(--ink);outline:none;padding:2px 0}
+  .card-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .fld{display:flex;flex-direction:column;gap:3px}
+  .fld label{font-size:9.5px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.3px}
+  .fld input,.fld select,.fld textarea{border:1px solid var(--ln);background:var(--cd2);border-radius:8px;
+    padding:8px 9px;font-family:inherit;font-size:13px;color:var(--ink);outline:none;font-weight:600;width:100%}
+  .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--ac)}
+  .fld.full{grid-column:1/-1}
+  .fld textarea{resize:none;min-height:34px;font-weight:500}
+  .badge{font-size:9px;color:var(--red);font-weight:800;background:var(--red-s);padding:2px 6px;border-radius:6px}
+  /* misc */
+  .notice{background:var(--ac-s);border-radius:10px;padding:9px 13px;font-size:11.5px;color:var(--ink);font-weight:500;margin-bottom:12px;line-height:1.5}
+  .notice b{color:var(--ac)}
+  .empty{text-align:center;padding:40px 20px;color:var(--mu);font-size:13px;font-weight:500}
+  .fp{text-align:center;font-size:10.5px;color:var(--mu);margin-top:18px;font-weight:600}
+  @media(max-width:860px){ .tw{display:none} .cards{display:flex} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hd">
+    <div>
+      <h1>Таблица <span class="g">клиентов</span></h1>
+      <div class="sub">CRM · Wareon</div>
+    </div>
+    <div class="hd-r">
+      <span class="saved" id="saved">Сохранено ✓</span>
+      <button class="icon-btn" id="theme" title="Тема">🌙</button>
+    </div>
+  </div>
+
+  <div class="kpi" id="kpi"></div>
+  <div class="notice"><b>Данные хранятся на устройстве.</b> Жми «Экспорт CSV» регулярно — или подключим синхронизацию с Wareon.</div>
+
+  <div class="tb">
+    <button class="btn bp" onclick="addRow()">＋ Лид</button>
+    <input class="search" id="search" placeholder="🔍 Поиск: имя, контакт, заметка…" oninput="render()">
+    <button class="btn bg" onclick="document.getElementById('imp').click()">Импорт</button>
+    <button class="btn bg" onclick="exportCSV()">Экспорт</button>
+    <input type="file" id="imp" accept=".csv" style="display:none" onchange="importCSV(event)">
+  </div>
+
+  <div class="pills" id="pills"></div>
+
+  <div class="tw">
+    <table>
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="cards" id="cards"></div>
+
+  <div class="fp">Wareon · ИИ бизнес-ассистент</div>
+</div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if(tg){ tg.ready(); tg.expand(); try{tg.disableVerticalSwipes&&tg.disableVerticalSwipes();}catch(e){} }
+
+const STATUSES=[
+  {v:"Новый",c:"#6b7280"},{v:"Написал",c:"#2563eb"},{v:"Фоллоу-ап 1",c:"#2563eb"},
+  {v:"Фоллоу-ап 2",c:"#2563eb"},{v:"Ответил",c:"#0891b2"},{v:"Возражение",c:"#d97706"},
+  {v:"Созвон назначен",c:"#d97706"},{v:"В работе",c:"#1f7a54"},{v:"Сдан",c:"#1f7a54"},
+  {v:"Оплата получена",c:"#059669"},{v:"Отказ",c:"#c2410c"},{v:"Закрывающее касание",c:"#6b7280"},
+];
+const PRIORITIES=[{v:"Срочно",c:"#c2410c"},{v:"Обычный",c:"#1f7a54"},{v:"Отложить",c:"#6b7280"}];
+const PLATFORMS=["Telegram","Wildberries","Ozon","Инстаграм","Другое"];
+const ORDER_TYPES=["Инфографика","Главный слайд","Видеообложка","Rich-контент","Логотип","Баннер","Пакет","Тест CTR","Другое"];
+const SOURCES=["Telegram-чат","Wildberries","Ozon","Инстаграм","Рекомендация","Прямой","Другое"];
+const OPEN=["Новый","Написал","Фоллоу-ап 1","Фоллоу-ап 2","Ответил","Возражение","Созвон назначен"];
+const DONE=["Сдан","Оплата получена","Отказ"];
+const COLS=[["name","Имя / магазин"],["platform","Площадка"],["contact","Контакт"],["orderType","Тип заказа"],
+  ["status","Статус"],["priority","Приоритет"],["source","Источник"],["slides","Слайдов"],["amount","Сумма"],
+  ["orderDate","Дата"],["deadline","Дедлайн"],["nextStep","След. шаг"],["note","Заметка"]];
+
+const KEY="wareon_crm_v4";
+let rows=[], sortKey="", sortDir=1, filterStatus="Все", saveTimer;
+
+function load(){ try{ rows=JSON.parse(localStorage.getItem(KEY))||[]; }catch(e){ rows=[]; } }
+function save(){
+  try{ localStorage.setItem(KEY,JSON.stringify(rows)); }catch(e){}
+  const el=document.getElementById("saved"); el.classList.add("on");
+  clearTimeout(saveTimer); saveTimer=setTimeout(()=>el.classList.remove("on"),1200);
+}
+function col(v,arr){ return (arr.find(x=>x.v===v)||arr[0]).c; }
+function fmt(n){ return n?Number(n).toLocaleString("ru-RU"):"—"; }
+function isOverdue(r){ return r.deadline && DONE.indexOf(r.status)<0 && new Date(r.deadline)<new Date(); }
+
+function addRow(){
+  rows.push({id:Date.now(),name:"",platform:"Telegram",contact:"",orderType:"Инфографика",
+    status:"Новый",priority:"Обычный",source:"Telegram-чат",slides:"",amount:"",orderDate:"",deadline:"",nextStep:"",note:""});
+  if(tg&&tg.HapticFeedback)try{tg.HapticFeedback.impactOccurred("light");}catch(e){}
+  save(); render();
+  setTimeout(()=>{const c=document.getElementById(window.innerWidth<860?"cards":"tbody");if(c&&c.lastElementChild)c.lastElementChild.scrollIntoView({block:"center",behavior:"smooth"});},60);
+}
+function delRow(id){ rows=rows.filter(r=>r.id!==id); save(); render(); }
+function upd(id,f,v){ const r=rows.find(x=>x.id===id); if(r){r[f]=v; save(); updateKPI();} }
+function sortBy(k){ if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=1;} render(); }
+function setFilter(s){ filterStatus=s; render(); }
+
+function getFiltered(){
+  const q=(document.getElementById("search").value||"").toLowerCase();
+  let f=rows.filter(r=>{
+    const mq=!q||(r.name||"").toLowerCase().includes(q)||(r.contact||"").toLowerCase().includes(q)||(r.note||"").toLowerCase().includes(q);
+    return mq && (filterStatus==="Все"||r.status===filterStatus);
+  });
+  if(sortKey) f.sort((a,b)=>{const av=a[sortKey]||"",bv=b[sortKey]||"";return av<bv?-sortDir:av>bv?sortDir:0;});
+  return f;
+}
+
+function updateKPI(){
+  const total=rows.length;
+  const active=rows.filter(r=>DONE.indexOf(r.status)<0).length;
+  const inwork=rows.filter(r=>r.status==="В работе").length;
+  const paid=rows.filter(r=>r.status==="Оплата получена").length;
+  const overdue=rows.filter(isOverdue).length;
+  let rev=0,pipe=0;
+  rows.forEach(r=>{const a=parseFloat(r.amount)||0; if(r.status==="Оплата получена")rev+=a; else if(OPEN.indexOf(r.status)>=0)pipe+=a;});
+  const kc=(v,l,cls)=>`<div class="kc ${cls||''}"><div class="kv">${v}</div><div class="kl">${l}</div></div>`;
+  document.getElementById("kpi").innerHTML=
+    kc(total,"Всего")+kc(active,"В работе")+kc(inwork,"Сдаётся","gold")+kc(paid,"Оплат","green")+
+    kc(overdue,"Просрочено","red")+kc(fmt(rev),"Выручка ₽","green")+kc(fmt(pipe),"Воронка ₽","gold");
+}
+
+function buildPills(){
+  const list=["Все",...STATUSES.map(s=>s.v)];
+  document.getElementById("pills").innerHTML=list.map(s=>
+    `<button class="pill ${filterStatus===s?'on':''}" onclick="setFilter('${s.replace(/'/g,"\\'")}')">${s}</button>`).join("");
+}
+
+function opt(arr,val){ return arr.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join(""); }
+function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
+
+/* ── desktop table ── */
+function renderTable(f){
+  document.getElementById("thead").innerHTML=COLS.map(([k,l])=>`<th onclick="sortBy('${k}')">${l} ↕</th>`).join("")+"<th></th>";
+  const tb=document.getElementById("tbody");
+  if(!f.length){ tb.innerHTML=`<tr><td colspan="14" class="empty">Ничего не найдено.</td></tr>`; return; }
+  tb.innerHTML=f.map(r=>{
+    const sc=col(r.status,STATUSES), pc=col(r.priority,PRIORITIES), od=isOverdue(r);
+    const inp=(f,t,extra="")=>`<input type="${t}" value="${esc(r[f])}" oninput="upd(${r.id},'${f}',this.value)" ${extra}>`;
+    const sel=(f,arr,cls="",c="")=>`<select class="${cls}" ${cls?`style="background:${c}22;color:${c}"`:''} onchange="upd(${r.id},'${f}',this.value);render()">${opt(arr,r[f])}</select>`;
+    return `<tr class="${od?'overdue':''}">
+      <td>${inp('name','text')}</td><td>${sel('platform',PLATFORMS)}</td><td>${inp('contact','text')}</td>
+      <td>${sel('orderType',ORDER_TYPES)}</td>
+      <td>${sel('status',STATUSES.map(s=>s.v),'pill-sel',sc)}</td>
+      <td>${sel('priority',PRIORITIES.map(p=>p.v),'pill-sel',pc)}</td>
+      <td>${sel('source',SOURCES)}</td><td>${inp('slides','number')}</td>
+      <td><div class="rub">${inp('amount','number')}</div></td>
+      <td>${inp('orderDate','date')}</td>
+      <td>${inp('deadline','date',od?'style="color:var(--red);font-weight:700"':'')}</td>
+      <td><textarea oninput="upd(${r.id},'nextStep',this.value)" placeholder="…">${esc(r.nextStep)}</textarea></td>
+      <td><textarea oninput="upd(${r.id},'note',this.value)" placeholder="…">${esc(r.note)}</textarea></td>
+      <td><button class="del" onclick="delRow(${r.id})">✕</button></td></tr>`;
+  }).join("");
+}
+
+/* ── mobile cards ── */
+function renderCards(f){
+  const c=document.getElementById("cards");
+  if(!f.length){ c.innerHTML=`<div class="empty">Ничего не найдено.</div>`; return; }
+  c.innerHTML=f.map(r=>{
+    const sc=col(r.status,STATUSES), pc=col(r.priority,PRIORITIES), od=isOverdue(r);
+    const fld=(f,l,t)=>`<div class="fld"><label>${l}</label><input type="${t}" value="${esc(r[f])}" oninput="upd(${r.id},'${f}',this.value)"></div>`;
+    const selF=(f,l,arr)=>`<div class="fld"><label>${l}</label><select onchange="upd(${r.id},'${f}',this.value);render()">${opt(arr,r[f])}</select></div>`;
+    return `<div class="card ${od?'overdue':''}">
+      <div class="card-top">
+        <input class="nm" value="${esc(r.name)}" placeholder="Имя / магазин" oninput="upd(${r.id},'name',this.value)">
+        ${od?'<span class="badge">ПРОСРОЧЕН</span>':''}
+        <button class="del" onclick="delRow(${r.id})">✕</button>
+      </div>
+      <div class="card-grid">
+        <div class="fld"><label>Статус</label><select style="background:${sc}22;color:${sc};font-weight:700" onchange="upd(${r.id},'status',this.value);render()">${opt(STATUSES.map(s=>s.v),r.status)}</select></div>
+        <div class="fld"><label>Приоритет</label><select style="background:${pc}22;color:${pc};font-weight:700" onchange="upd(${r.id},'priority',this.value);render()">${opt(PRIORITIES.map(p=>p.v),r.priority)}</select></div>
+        ${selF('platform','Площадка',PLATFORMS)}
+        ${selF('orderType','Тип заказа',ORDER_TYPES)}
+        ${fld('contact','Контакт','text')}
+        ${selF('source','Источник',SOURCES)}
+        <div class="fld"><label>Сумма, ₽</label><input type="number" value="${esc(r.amount)}" oninput="upd(${r.id},'amount',this.value)"></div>
+        ${fld('slides','Слайдов','number')}
+        ${fld('orderDate','Дата','date')}
+        ${fld('deadline','Дедлайн','date')}
+        <div class="fld full"><label>Следующий шаг</label><textarea oninput="upd(${r.id},'nextStep',this.value)" placeholder="Напр., отправить фоллоу-ап">${esc(r.nextStep)}</textarea></div>
+        <div class="fld full"><label>Заметка</label><textarea oninput="upd(${r.id},'note',this.value)" placeholder="Детали, договорённости…">${esc(r.note)}</textarea></div>
+      </div></div>`;
+  }).join("");
+}
+
+function render(){
+  buildPills(); updateKPI();
+  const f=getFiltered();
+  if(window.innerWidth<860) renderCards(f); else renderTable(f);
+}
+
+/* ── CSV ── */
+function exportCSV(){
+  if(!rows.length){ alert("Таблица пуста"); return; }
+  const h=COLS.map(c=>c[1]);
+  const lines=[h.join(";")].concat(rows.map(r=>COLS.map(c=>`"${(String(r[c[0]]??"")).replace(/"/g,'""')}"`).join(";")));
+  const blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="wareon_crm.csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+function importCSV(e){
+  const file=e.target.files[0]; if(!file) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const text=rd.result.replace(/^﻿/,"");
+    const sep=text.indexOf(";")>=0?";":",";
+    const lines=text.split(/\r?\n/).filter(l=>l.trim());
+    let start=0;
+    if(lines[0]&&/имя|name|статус|status/i.test(lines[0])) start=1;
+    let added=0;
+    for(let i=start;i<lines.length;i++){
+      const cells=parseCSVLine(lines[i],sep);
+      if(!cells.length||!cells.join("").trim()) continue;
+      const r={id:Date.now()+i,name:"",platform:"Telegram",contact:"",orderType:"Инфографика",
+        status:"Новый",priority:"Обычный",source:"Telegram-чат",slides:"",amount:"",orderDate:"",deadline:"",nextStep:"",note:""};
+      COLS.forEach((c,idx)=>{ if(cells[idx]!=null) r[c[0]]=cells[idx].trim(); });
+      rows.push(r); added++;
+    }
+    save(); render();
+    alert(added?`Добавлено строк: ${added}`:"Не нашёл строк для импорта");
+    e.target.value="";
+  };
+  rd.readAsText(file,"utf-8");
+}
+function parseCSVLine(line,sep){
+  const out=[]; let cur="",q=false;
+  for(let i=0;i<line.length;i++){ const ch=line[i];
+    if(q){ if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else { if(ch==='"')q=true; else if(ch===sep){out.push(cur);cur="";} else cur+=ch; }
+  }
+  out.push(cur); return out;
+}
+
+/* ── theme ── */
+function applyTheme(t){
+  document.documentElement.setAttribute("data-theme",t);
+  document.getElementById("theme").textContent = t==="dark"?"☀️":"🌙";
+  localStorage.setItem("wareon_crm_theme",t);
+}
+document.getElementById("theme").onclick=()=>{
+  const cur=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";
+  applyTheme(cur);
+};
+
+applyTheme(localStorage.getItem("wareon_crm_theme")||"light");
+load(); render();
+window.addEventListener("resize",()=>{ clearTimeout(window._rz); window._rz=setTimeout(render,150); });
+</script>
+</body>
+</html>

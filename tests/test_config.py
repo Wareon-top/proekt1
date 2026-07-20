@@ -19,3 +19,10 @@ def test_launch_url_without_api_is_plain():
 def test_webapp_enabled_flag():
     assert Settings(webapp_url="https://pages.io/").webapp_enabled is True
     assert Settings(webapp_url="").webapp_enabled is False
+
+
+def test_crm_url():
+    assert Settings(webapp_url="https://pages.io/app/").crm_url == "https://pages.io/app/crm.html"
+    assert Settings(webapp_url="https://pages.io/app").crm_url == "https://pages.io/app/crm.html"
+    assert Settings(webapp_url="https://pages.io/app/index.html").crm_url == "https://pages.io/app/crm.html"
+    assert Settings(webapp_url="").crm_url == ""

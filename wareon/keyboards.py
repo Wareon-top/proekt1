@@ -71,12 +71,14 @@ def social_card_kb() -> InlineKeyboardMarkup:
 
 
 def tables_card_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [_btn("📁 Мои таблицы", "sec:tables")],
-            [_btn("⬅️ В меню", "menu:main")],
-        ]
-    )
+    rows: list[list[InlineKeyboardButton]] = []
+    if settings.webapp_enabled:
+        rows.append(
+            [InlineKeyboardButton(text="🗂 Таблица клиентов (CRM)", web_app=WebAppInfo(url=settings.crm_url))]
+        )
+    rows.append([_btn("📁 Загруженные таблицы", "sec:tables")])
+    rows.append([_btn("⬅️ В меню", "menu:main")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 # Совместимость со старым импортом.
