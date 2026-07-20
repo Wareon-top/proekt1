@@ -12,7 +12,7 @@ def main_menu() -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     if settings.webapp_enabled:
         rows.append(
-            [InlineKeyboardButton(text="✨ Открыть дашборд", web_app=WebAppInfo(url=settings.webapp_url))]
+            [InlineKeyboardButton(text="✨ Открыть дашборд", web_app=WebAppInfo(url=settings.webapp_launch_url))]
         )
     rows += [
         [_btn("🧠 Ассистент", "menu:agent"), _btn("🎛 Пульт", "menu:pulse")],

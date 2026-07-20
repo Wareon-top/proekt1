@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     database_url: str = ""
     # HTTPS-адрес мини-приложения (Web App). Пусто — кнопка дашборда не показывается.
     webapp_url: str = ""
+    # Публичный HTTPS-адрес этого API (бот-хост). Если задан — бот добавит его в
+    # адрес дашборда как ?api=..., чтобы Web App знал, откуда брать данные.
+    api_public_url: str = ""
     # Разрешённые источники для API (CORS). Обычно — адрес дашборда.
     cors_origins: str = "*"
     # Ключ Anthropic для ИИ-функций (сводка, ассистент). Пусто — ИИ выключен.
@@ -24,6 +27,16 @@ class Settings(BaseSettings):
     @property
     def webapp_enabled(self) -> bool:
         return self.webapp_url.startswith("https://")
+
+    @property
+    def webapp_launch_url(self) -> str:
+        """Адрес дашборда с приклеенным ?api=<api_public_url>, если тот задан."""
+        base = self.webapp_url.rstrip()
+        api = self.api_public_url.rstrip().rstrip("/")
+        if base and api:
+            sep = "&" if "?" in base else "?"
+            return f"{base}{sep}api={api}"
+        return base
 
     @property
     def ai_enabled(self) -> bool:
