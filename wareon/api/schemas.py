@@ -38,6 +38,7 @@ class PanelResponse(BaseModel):
     has_data: bool
     days: int
     forecast_revenue: float | None = None
+    revenue_series: list[float] = []
     growth_points: list[str] = []
     bottlenecks: list[str] = []
     metrics: list[MetricOut] = []

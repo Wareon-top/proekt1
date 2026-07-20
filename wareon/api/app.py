@@ -76,6 +76,7 @@ async def panel(days: int = 7, uid: int = Depends(current_user)) -> schemas.Pane
         has_data=bool(revenue and revenue.value),
         days=p.days,
         forecast_revenue=p.forecast_revenue,
+        revenue_series=p.revenue_series,
         growth_points=[m.title for m in p.growth_points],
         bottlenecks=[m.title for m in p.bottlenecks],
         metrics=[

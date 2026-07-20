@@ -66,6 +66,7 @@ def test_panel_returns_metrics(client):
     rev = next(m for m in data["metrics"] if m["key"] == "revenue")
     assert rev["value"] == 3800.0
     assert rev["unit"] == "₽"
+    assert isinstance(data["revenue_series"], list) and len(data["revenue_series"]) == 30
 
 
 def test_panel_empty_user(client):

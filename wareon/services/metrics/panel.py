@@ -42,6 +42,7 @@ class Panel:
     days: int
     metrics: list[MetricValue] = field(default_factory=list)
     forecast_revenue: float | None = None  # прогноз выручки на следующие `days` дней
+    revenue_series: list[float] = field(default_factory=list)  # выручка по дням периода
 
     @property
     def growth_points(self) -> list[MetricValue]:
@@ -212,4 +213,9 @@ async def build_panel(
     series = await _daily_revenue(session, user_tg_id, start, end)
     forecast = linear_forecast(series, days)
 
-    return Panel(days=days, metrics=metrics, forecast_revenue=forecast)
+    return Panel(
+        days=days,
+        metrics=metrics,
+        forecast_revenue=forecast,
+        revenue_series=[round(v, 2) for v in series],
+    )

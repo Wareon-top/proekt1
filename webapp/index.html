@@ -9,249 +9,296 @@
   :root{
     --bg:#0b0b0d; --card:#141418; --card2:#1b1b21; --line:#26262e;
     --txt:#f4f2ec; --dim:#9b9aa4; --gold:#d9b45b; --gold2:#f0d488;
-    --green:#4fbf7a; --red:#e2695f; --flat:#6d6d78;
+    --green:#4fbf7a; --red:#e2695f; --flat:#6d6d78; --nav:#101014;
   }
-  *{box-sizing:border-box}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--txt);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-font-smoothing:antialiased}
-  body{padding:14px 14px calc(24px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
-  a{color:var(--gold2)}
+  body{max-width:680px;margin:0 auto;padding-bottom:76px}
+  .wrap{padding:12px 14px}
   .row{display:flex;align-items:center;gap:8px}
   .between{justify-content:space-between}
   .muted{color:var(--dim)}
-  .head{margin:2px 0 14px}
-  .logo{font-size:22px;font-weight:700;letter-spacing:.5px}
+  /* header */
+  header{position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg),rgba(11,11,13,.85));
+    backdrop-filter:blur(8px);padding:12px 14px 8px}
+  .logo{font-size:20px;font-weight:700;letter-spacing:.5px}
   .logo b{color:var(--gold)}
-  .sub{font-size:12px;color:var(--dim);margin-top:2px}
+  .sub{font-size:11px;color:var(--dim)}
   .toggle{display:flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
   .toggle button{border:0;background:transparent;color:var(--dim);padding:5px 12px;border-radius:999px;
     font-size:12px;font-weight:600;cursor:pointer}
   .toggle button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#20180a}
+  /* cards */
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
-  .ai{background:radial-gradient(120% 140% at 0% 0%,rgba(217,180,91,.14),transparent 55%),var(--card);
-    border-color:#3a3320}
-  .ai h2{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:8px}
-  .ai .brief{font-size:14px;line-height:1.5;white-space:pre-wrap}
-  .chat{margin-top:12px;display:flex;flex-direction:column;gap:8px}
-  .msgs{display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow-y:auto;padding-right:2px}
-  .msg{padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap;max-width:88%}
-  .msg.u{align-self:flex-end;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#20180a;
-    border-bottom-right-radius:4px}
-  .msg.a{align-self:flex-start;background:var(--card2);border:1px solid var(--line);border-bottom-left-radius:4px}
-  .msg .did{display:block;margin-top:6px;font-size:12px;color:var(--gold2)}
-  .composer{display:flex;gap:8px}
-  .composer input{flex:1;background:var(--card2);border:1px solid var(--line);border-radius:12px;
-    color:var(--txt);padding:11px 12px;font-size:14px;outline:none}
-  .composer input:focus{border-color:var(--gold)}
-  .composer button{border:0;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#20180a;
-    font-weight:700;border-radius:12px;padding:0 16px;font-size:14px;cursor:pointer}
-  .composer button:disabled{opacity:.5}
-  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}
+  .verdict{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;
+    background:radial-gradient(120% 160% at 0% 0%,rgba(217,180,91,.16),transparent 55%),var(--card);
+    border:1px solid #3a3320;border-radius:14px;padding:13px 14px;margin-bottom:12px}
+  .verdict .em{font-size:22px}
+  /* KPI */
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 10px}
+  .kpi .k-t{font-size:11px;color:var(--dim)}
+  .kpi .k-v{font-size:18px;font-weight:700;margin-top:3px;letter-spacing:-.3px}
+  .kpi .k-d{font-size:11px;font-weight:600;margin-top:3px}
+  .up{color:var(--green)} .down{color:var(--red)} .na{color:var(--flat)}
+  /* chart */
+  .chart{display:flex;align-items:flex-end;gap:3px;height:88px;margin:4px 0 2px}
+  .bar{flex:1;background:linear-gradient(var(--gold2),var(--gold));border-radius:3px 3px 0 0;min-height:2px;
+    opacity:.9}
+  .bar.last{background:linear-gradient(#8fe0ab,var(--green))}
+  .cap{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;margin-top:4px}
+  .forecast{font-size:13px;color:var(--dim);margin-top:10px}
+  .forecast b{color:var(--gold2)}
+  /* chips */
+  .h{font-size:13px;font-weight:700;margin:2px 0 8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
   .chip{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid var(--line)}
   .chip.g{color:var(--green);border-color:#255238;background:rgba(79,191,122,.08)}
   .chip.b{color:var(--red);border-color:#5a2a26;background:rgba(226,105,95,.08)}
-  .area{font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.6px;
-    margin:14px 0 8px}
-  .metric{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
-    padding:9px 0;border-bottom:1px solid var(--line)}
+  /* metrics */
+  .area{font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 6px}
+  .metric{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
   .metric:last-child{border-bottom:0}
   .m-name{font-size:14px}
-  .m-name .ai-tag{font-size:10px;color:var(--gold2);vertical-align:super;margin-left:3px}
+  .m-name .ai{font-size:10px;color:var(--gold2);vertical-align:super;margin-left:3px}
   .m-val{font-size:15px;font-weight:700;text-align:right;white-space:nowrap}
   .m-tr{font-size:12px;font-weight:600;margin-left:8px}
-  .up{color:var(--green)} .down{color:var(--red)} .na{color:var(--flat)}
   .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:middle}
   .dot.growth{background:var(--green)} .dot.bottleneck{background:var(--red)}
   .dot.flat{background:var(--flat)} .dot.na{background:#333}
-  .forecast{margin-top:12px;font-size:13px;color:var(--dim)}
-  .forecast b{color:var(--gold2)}
-  .empty{text-align:center;color:var(--dim);font-size:14px;padding:18px 6px;line-height:1.5}
-  .empty code,.banner code{background:var(--card2);border:1px solid var(--line);border-radius:6px;
-    padding:1px 6px;color:var(--gold2)}
-  .banner{font-size:12px;background:var(--card2);border:1px solid var(--line);border-radius:10px;
-    padding:8px 10px;margin-bottom:12px;color:var(--dim)}
-  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--gold);
-    border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle}
+  /* chat */
+  .brief{font-size:14px;line-height:1.5;white-space:pre-wrap}
+  .msgs{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+  .msg{padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap;max-width:88%}
+  .msg.u{align-self:flex-end;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#20180a;border-bottom-right-radius:4px}
+  .msg.a{align-self:flex-start;background:var(--card2);border:1px solid var(--line);border-bottom-left-radius:4px}
+  .msg .did{display:block;margin-top:6px;font-size:12px;color:var(--gold2)}
+  .quick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .quick button{font-size:12px;font-weight:600;color:var(--gold2);background:var(--card2);
+    border:1px solid var(--line);border-radius:999px;padding:6px 11px;cursor:pointer}
+  .composer{display:flex;gap:8px;position:sticky;bottom:0;padding-top:6px;background:var(--bg)}
+  .composer input{flex:1;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:11px 12px;font-size:14px;outline:none}
+  .composer input:focus{border-color:var(--gold)}
+  .composer button{border:0;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#20180a;font-weight:700;border-radius:12px;padding:0 16px;font-size:14px;cursor:pointer}
+  .composer button:disabled{opacity:.5}
+  /* states */
+  .empty{text-align:center;color:var(--dim);font-size:14px;padding:26px 8px;line-height:1.5}
+  .empty code,.banner code{background:var(--card2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--gold2)}
+  .banner{font-size:12px;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:0 14px 8px;color:var(--dim)}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle}
   @keyframes sp{to{transform:rotate(360deg)}}
+  /* tabs */
+  .tab{display:none}
+  .tab.on{display:block}
+  nav{position:fixed;bottom:0;left:0;right:0;z-index:6;display:flex;justify-content:space-around;
+    background:var(--nav);border-top:1px solid var(--line);padding:6px 0 calc(6px + env(safe-area-inset-bottom));
+    max-width:680px;margin:0 auto}
+  nav button{flex:1;border:0;background:transparent;color:var(--dim);font-size:11px;font-weight:600;
+    display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;cursor:pointer}
+  nav button .ic{font-size:20px;line-height:1}
+  nav button.on{color:var(--gold2)}
 </style>
 </head>
 <body>
-  <div class="head row between">
+  <header class="row between">
     <div>
       <div class="logo">War<b>e</b>on</div>
-      <div class="sub">ИИ бизнес-ассистент · видит → думает → делает</div>
+      <div class="sub">ИИ бизнес-ассистент</div>
     </div>
-    <div class="toggle" id="mode">
-      <button data-mode="simple" class="on">Просто</button>
-      <button data-mode="pro">Pro</button>
+    <div class="toggle" id="period">
+      <button data-days="7" class="on">7 дн</button>
+      <button data-days="30">30 дн</button>
     </div>
-  </div>
+  </header>
 
   <div id="banner"></div>
 
-  <!-- ИИ во главе -->
-  <div class="card ai">
-    <h2>🧠 Ассистент</h2>
-    <div class="brief" id="brief"><span class="spin"></span> собираю утренний разбор…</div>
-    <div class="chat">
-      <div class="msgs" id="msgs"></div>
-      <div class="composer">
-        <input id="inp" placeholder="Спроси или дай задачу…" autocomplete="off" />
-        <button id="send">▶</button>
-      </div>
-    </div>
-  </div>
+  <!-- ОБЗОР -->
+  <section class="tab on wrap" id="t-overview">
+    <div id="overview"><div class="empty"><span class="spin"></span> собираю картину…</div></div>
+  </section>
 
-  <!-- Пульт -->
-  <div class="card">
-    <div class="row between">
-      <h2 style="margin:0;font-size:15px">🎛 Пульт</h2>
-      <div class="toggle" id="period">
-        <button data-days="7" class="on">7 дн</button>
-        <button data-days="30">30 дн</button>
+  <!-- ПУЛЬТ -->
+  <section class="tab wrap" id="t-pulse">
+    <div class="row between" style="margin-bottom:10px">
+      <div class="h" style="margin:0">🎛 Все метрики</div>
+      <div class="toggle" id="mode">
+        <button data-mode="simple" class="on">Просто</button>
+        <button data-mode="pro">Pro</button>
       </div>
     </div>
-    <div id="panel"><div class="empty"><span class="spin"></span> считаю метрики…</div></div>
-  </div>
+    <div id="panel"><div class="empty"><span class="spin"></span> считаю…</div></div>
+  </section>
+
+  <!-- АССИСТЕНТ -->
+  <section class="tab wrap" id="t-chat">
+    <div class="card" style="margin-bottom:12px">
+      <div class="h">🧠 Разбор</div>
+      <div class="brief" id="brief"><span class="spin"></span> думаю…</div>
+    </div>
+    <div class="quick" id="quick">
+      <button data-q="Как дела с бизнесом за неделю? Коротко.">📈 Как дела?</button>
+      <button data-q="Где я теряю деньги? Найди узкие места.">💸 Где теряю?</button>
+      <button data-q="Что улучшить в первую очередь? Дай 3 приоритета.">🎯 Что улучшить?</button>
+    </div>
+    <div class="msgs" id="msgs"></div>
+    <div class="composer">
+      <input id="inp" placeholder="Спроси или дай задачу…" autocomplete="off" />
+      <button id="send">▶</button>
+    </div>
+  </section>
+
+  <nav id="nav">
+    <button data-tab="overview" class="on"><span class="ic">📊</span>Обзор</button>
+    <button data-tab="pulse"><span class="ic">🎛</span>Пульт</button>
+    <button data-tab="chat"><span class="ic">🧠</span>Ассистент</button>
+  </nav>
 
 <script>
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-if (tg) {
-  tg.ready(); tg.expand();
-  try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch(e){}
-}
+if (tg){ tg.ready(); tg.expand(); try{ tg.disableVerticalSwipes && tg.disableVerticalSwipes(); }catch(e){} }
 const qs = new URLSearchParams(location.search);
-// База API: ?api=... или глобаль WAREON_API, иначе тот же origin.
 const API = (qs.get('api') || window.WAREON_API || '').replace(/\/$/,'');
 const initData = tg && tg.initData ? tg.initData : '';
 const DEV = qs.get('dev_user_id');
 
-function url(path, params={}) {
-  const u = new URL((API || '') + path, location.origin);
-  Object.entries(params).forEach(([k,v]) => v!=null && u.searchParams.set(k,v));
-  if (!initData && DEV) u.searchParams.set('dev_user_id', DEV);
+function url(path, params={}){
+  const u = new URL((API||'')+path, location.origin);
+  Object.entries(params).forEach(([k,v])=>v!=null&&u.searchParams.set(k,v));
+  if(!initData && DEV) u.searchParams.set('dev_user_id', DEV);
   return u.toString();
 }
-function headers(json){
-  const h = {}; if (json) h['Content-Type']='application/json';
-  if (initData) h['X-Init-Data']=initData; return h;
-}
-async function getJSON(path, params){ const r=await fetch(url(path,params),{headers:headers(false)});
-  if(!r.ok) throw new Error(r.status); return r.json(); }
-async function postJSON(path, body){ const r=await fetch(url(path),{method:'POST',headers:headers(true),
-  body:JSON.stringify(body)}); if(!r.ok) throw new Error(r.status); return r.json(); }
+function headers(json){ const h={}; if(json)h['Content-Type']='application/json';
+  if(initData)h['X-Init-Data']=initData; return h; }
+async function getJSON(p,pr){ const r=await fetch(url(p,pr),{headers:headers(false)}); if(!r.ok)throw 0; return r.json(); }
+async function postJSON(p,b){ const r=await fetch(url(p),{method:'POST',headers:headers(true),body:JSON.stringify(b)}); if(!r.ok)throw 0; return r.json(); }
 
-let MODE = localStorage.getItem('wareon_mode') || 'simple';
-let DAYS = +(localStorage.getItem('wareon_days') || 7);
+let MODE = localStorage.getItem('wareon_mode')||'simple';
+let DAYS = +(localStorage.getItem('wareon_days')||7);
+let PANEL = null;
 
-function setActive(id, attr, val){
-  document.querySelectorAll('#'+id+' button').forEach(b=>
-    b.classList.toggle('on', b.dataset[attr]===val));
-}
+function setActive(id,attr,val){ document.querySelectorAll('#'+id+' button').forEach(b=>
+  b.classList.toggle('on', b.dataset[attr]===val)); }
 setActive('mode','mode',MODE); setActive('period','days',String(DAYS));
 
-// ── Пульт ─────────────────────────────────────────────
-const AREA = {finance:'Финансы',sales:'Продажи и конверсия',marketing:'Маркетинг',
+// ── helpers ─────────────────────────────────────────
+const AREA={finance:'Финансы',sales:'Продажи и конверсия',marketing:'Маркетинг',
   marketplace:'Маркетплейс',clients:'Клиентская экономика',custom:'Мои метрики'};
-const KEY_METRICS = new Set(['revenue','profit','margin_pct','avg_check','orders']);
+const KEY=new Set(['revenue','profit','margin_pct','avg_check','orders']);
 function money(v){ return Math.round(v).toLocaleString('ru-RU')+' ₽'; }
-function fmt(v,u){ if(v==null) return 'нет данных';
-  if(u==='₽') return money(v); if(u==='%') return (Math.round(v*10)/10)+'%';
-  if(u==='шт') return (Math.round(v*100)/100)+' шт'; return Math.round(v*100)/100; }
-function trend(t){ if(t==null) return '';
-  const cls=t>0?'up':t<0?'down':'na', a=t>0?'▲':t<0?'▼':'=';
-  return `<span class="m-tr ${cls}">${a}${Math.abs(Math.round(t))}%</span>`; }
+function fmt(v,u){ if(v==null)return '—'; if(u==='₽')return money(v);
+  if(u==='%')return (Math.round(v*10)/10)+'%'; if(u==='шт')return (Math.round(v*100)/100)+' шт'; return Math.round(v*100)/100; }
+function trendHTML(t){ if(t==null)return ''; const c=t>0?'up':t<0?'down':'na',a=t>0?'▲':t<0?'▼':'=';
+  return `<span class="m-tr ${c}">${a}${Math.abs(Math.round(t))}%</span>`; }
+function pick(key){ return PANEL ? PANEL.metrics.find(m=>m.key===key) : null; }
+function verdict(p){
+  const g=p.growth_points.length,b=p.bottlenecks.length;
+  if(g&&b)return['📈','Растёшь — но есть узкие места.'];
+  if(g)return['📈','Бизнес идёт в рост.'];
+  if(b)return['⚠️','Есть, что подтянуть.'];
+  return['▪️','Пока ровно — мало данных.'];
+}
 
-async function loadPanel(){
-  const el = document.getElementById('panel');
-  el.innerHTML = '<div class="empty"><span class="spin"></span> считаю метрики…</div>';
-  let p;
-  try { p = await getJSON('/api/panel',{days:DAYS}); }
-  catch(e){ el.innerHTML = '<div class="empty">Не удалось загрузить данные.<br>Проверь связь с ботом.</div>'; return; }
-  if(!p.has_data){
-    el.innerHTML = '<div class="empty">Пока нет продаж за период.<br>Добавь их боту: <code>/sale 15000 8000</code></div>';
+// ── ОБЗОР ───────────────────────────────────────────
+function chartHTML(series){
+  if(!series||series.length<2) return '';
+  const max=Math.max(...series,1);
+  const bars=series.map((v,i)=>`<div class="bar ${i===series.length-1?'last':''}" style="height:${Math.max(v/max*100,2)}%"></div>`).join('');
+  return `<div class="chart">${bars}</div><div class="cap"><span>${series.length} дн назад</span><span>сегодня</span></div>`;
+}
+function renderOverview(){
+  const el=document.getElementById('overview');
+  if(!PANEL||!PANEL.has_data){
+    el.innerHTML='<div class="empty">Данных пока нет.<br>Дай первую цифру боту: <code>/sale 15000 8000</code> — и здесь оживёт картина.</div>';
     return;
   }
-  let html = '';
-  const chips = [];
-  p.growth_points.forEach(t=>chips.push('<span class="chip g">📈 '+t+'</span>'));
-  p.bottlenecks.forEach(t=>chips.push('<span class="chip b">⚠️ '+t+'</span>'));
-  if(chips.length) html += '<div class="chips">'+chips.join('')+'</div>';
+  const [em,vtext]=verdict(PANEL);
+  const kpi=(k,lbl)=>{ const m=pick(k); if(!m)return '';
+    return `<div class="kpi"><div class="k-t">${lbl}</div><div class="k-v">${fmt(m.value,m.unit)}</div>
+      <div class="k-d ${m.trend_pct>0?'up':m.trend_pct<0?'down':'na'}">${m.trend_pct==null?'':(m.trend_pct>0?'▲':m.trend_pct<0?'▼':'=')+Math.abs(Math.round(m.trend_pct))+'%'}</div></div>`; };
+  let html=`<div class="verdict"><span class="em">${em}</span><span>${vtext}</span></div>`;
+  html+=`<div class="kpis">${kpi('revenue','Выручка')}${kpi('profit','Прибыль')}${kpi('margin_pct','Маржа')}</div>`;
+  const chart=chartHTML(PANEL.revenue_series);
+  if(chart){ html+=`<div class="card"><div class="h">Выручка по дням</div>${chart}`;
+    if(PANEL.forecast_revenue!=null) html+=`<div class="forecast">🔮 Прогноз на следующие ${PANEL.days} дн: <b>${money(PANEL.forecast_revenue)}</b></div>`;
+    html+='</div>'; }
+  const chips=[];
+  PANEL.growth_points.forEach(t=>chips.push(`<span class="chip g">📈 ${t}</span>`));
+  PANEL.bottlenecks.forEach(t=>chips.push(`<span class="chip b">⚠️ ${t}</span>`));
+  if(chips.length) html+=`<div class="card"><div class="h">Точки роста и узкие места</div><div class="chips">${chips.join('')}</div></div>`;
+  el.innerHTML=html;
+}
 
-  const shown = p.metrics.filter(m =>
-    MODE==='pro' ? true : (KEY_METRICS.has(m.key) || m.status==='growth' || m.status==='bottleneck' || m.custom));
-  const byArea = {};
-  shown.forEach(m => (byArea[m.area] = byArea[m.area]||[]).push(m));
-  Object.keys(byArea).forEach(area=>{
-    html += '<div class="area">'+(AREA[area]||area)+'</div>';
-    byArea[area].forEach(m=>{
-      html += '<div class="metric"><div class="m-name">'
-        + '<span class="dot '+m.status+'"></span>'+m.title
-        + (m.custom?'<span class="ai-tag">✦</span>':'')+'</div>'
-        + '<div class="m-val '+(m.value==null?'na':'')+'">'+fmt(m.value,m.unit)+trend(m.trend_pct)+'</div></div>';
-    });
+// ── ПУЛЬТ ───────────────────────────────────────────
+function renderPanel(){
+  const el=document.getElementById('panel');
+  if(!PANEL||!PANEL.has_data){ el.innerHTML='<div class="empty">Нет данных за период.</div>'; return; }
+  const shown=PANEL.metrics.filter(m=> MODE==='pro'?true:(KEY.has(m.key)||m.status==='growth'||m.status==='bottleneck'||m.custom));
+  const by={}; shown.forEach(m=>(by[m.area]=by[m.area]||[]).push(m));
+  let html='';
+  Object.keys(by).forEach(area=>{
+    html+=`<div class="area">${AREA[area]||area}</div>`;
+    by[area].forEach(m=>{ html+=`<div class="metric"><div class="m-name"><span class="dot ${m.status}"></span>${m.title}${m.custom?'<span class="ai">✦</span>':''}</div>
+      <div class="m-val ${m.value==null?'na':''}">${fmt(m.value,m.unit)}${trendHTML(m.trend_pct)}</div></div>`; });
   });
-  if(p.forecast_revenue!=null)
-    html += '<div class="forecast">🔮 Прогноз выручки на следующие '+p.days+' дн: <b>'+money(p.forecast_revenue)+'</b></div>';
-  el.innerHTML = html;
+  el.innerHTML=html||'<div class="empty">Нет метрик для показа.</div>';
 }
 
-// ── Ассистент ─────────────────────────────────────────
+async function loadPanel(){
+  try{ PANEL=await getJSON('/api/panel',{days:DAYS}); }
+  catch(e){ document.getElementById('overview').innerHTML='<div class="empty">Не удалось загрузить данные.<br>Проверь связь с ботом.</div>'; return; }
+  renderOverview(); renderPanel();
+}
+
+// ── АССИСТЕНТ ───────────────────────────────────────
 async function loadBrief(){
-  const el = document.getElementById('brief');
-  try {
-    const b = await getJSON('/api/brief');
-    el.textContent = b.enabled ? (b.text||'') :
-      'ИИ пока не подключён — добавь ключ Anthropic, и я начну вести разбор.';
-  } catch(e){ el.textContent = 'Не удалось получить разбор.'; }
+  const el=document.getElementById('brief');
+  try{ const b=await getJSON('/api/brief');
+    el.textContent=b.enabled?(b.text||''):'ИИ пока не подключён — добавь ключ Anthropic, и я начну вести разбор.'; }
+  catch(e){ el.textContent='Не удалось получить разбор.'; }
 }
-function addMsg(text, who, did){
-  const m = document.createElement('div');
-  m.className = 'msg '+(who==='u'?'u':'a');
-  m.textContent = text;
-  if(did && did.length){ const s=document.createElement('span'); s.className='did';
-    s.textContent='✓ '+did.join('; '); m.appendChild(s); }
-  const box = document.getElementById('msgs'); box.appendChild(m); box.scrollTop = box.scrollHeight;
-  return m;
+function addMsg(text,who,did){
+  const m=document.createElement('div'); m.className='msg '+(who==='u'?'u':'a'); m.textContent=text;
+  if(did&&did.length){ const s=document.createElement('span'); s.className='did'; s.textContent='✓ '+did.join('; '); m.appendChild(s); }
+  const box=document.getElementById('msgs'); box.appendChild(m); m.scrollIntoView({block:'end'}); return m;
 }
-async function send(){
-  const inp = document.getElementById('inp'); const text = inp.value.trim();
-  if(!text) return;
-  inp.value=''; document.getElementById('send').disabled=true;
-  if(tg && tg.HapticFeedback) try{ tg.HapticFeedback.impactOccurred('light'); }catch(e){}
-  addMsg(text,'u');
-  const wait = addMsg('…','a');
-  try {
-    const r = await postJSON('/api/chat',{message:text});
-    wait.textContent = r.text || '';
-    if(r.actions && r.actions.length){ const s=document.createElement('span'); s.className='did';
-      s.textContent='✓ '+r.actions.join('; '); wait.appendChild(s); loadPanel(); }
-  } catch(e){ wait.textContent = 'Не получилось ответить, попробуй ещё раз.'; }
+async function ask(text){
+  if(!text)return;
+  document.getElementById('inp').value=''; document.getElementById('send').disabled=true;
+  if(tg&&tg.HapticFeedback)try{ tg.HapticFeedback.impactOccurred('light'); }catch(e){}
+  addMsg(text,'u'); const wait=addMsg('…','a');
+  try{ const r=await postJSON('/api/chat',{message:text});
+    wait.textContent=r.text||'';
+    if(r.actions&&r.actions.length){ const s=document.createElement('span'); s.className='did'; s.textContent='✓ '+r.actions.join('; '); wait.appendChild(s); loadPanel(); } }
+  catch(e){ wait.textContent='Не получилось ответить, попробуй ещё раз.'; }
   document.getElementById('send').disabled=false;
-  document.getElementById('msgs').scrollTop = 1e9;
 }
 
-// ── События ───────────────────────────────────────────
-document.getElementById('send').onclick = send;
-document.getElementById('inp').addEventListener('keydown', e=>{ if(e.key==='Enter') send(); });
-document.getElementById('mode').addEventListener('click', e=>{
-  const b=e.target.closest('button'); if(!b) return;
-  MODE=b.dataset.mode; localStorage.setItem('wareon_mode',MODE);
-  setActive('mode','mode',MODE); loadPanel();
+// ── события ─────────────────────────────────────────
+document.getElementById('nav').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return; const t=b.dataset.tab;
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on', s.id==='t-'+t));
+  if(t==='chat') document.getElementById('inp').focus();
 });
-document.getElementById('period').addEventListener('click', e=>{
-  const b=e.target.closest('button'); if(!b) return;
-  DAYS=+b.dataset.days; localStorage.setItem('wareon_days',String(DAYS));
-  setActive('period','days',String(DAYS)); loadPanel();
+document.getElementById('period').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return; DAYS=+b.dataset.days;
+  localStorage.setItem('wareon_days',String(DAYS)); setActive('period','days',String(DAYS)); loadPanel();
 });
+document.getElementById('mode').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return; MODE=b.dataset.mode;
+  localStorage.setItem('wareon_mode',MODE); setActive('mode','mode',MODE); renderPanel();
+});
+document.getElementById('send').onclick=()=>ask(document.getElementById('inp').value.trim());
+document.getElementById('inp').addEventListener('keydown',e=>{ if(e.key==='Enter')ask(e.target.value.trim()); });
+document.getElementById('quick').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b)ask(b.dataset.q); });
 
 if(!initData && !DEV){
-  document.getElementById('banner').innerHTML =
-    '<div class="banner">Открой дашборд из Telegram, чтобы увидеть свои данные. ' +
-    'Для локального теста добавь <code>?dev_user_id=…</code>.</div>';
+  document.getElementById('banner').innerHTML='<div class="banner">Открой из Telegram, чтобы увидеть свои данные. Для теста — <code>?dev_user_id=…</code></div>';
 }
-loadBrief(); loadPanel();
+loadPanel(); loadBrief();
 </script>
 </body>
 </html>
