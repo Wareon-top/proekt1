@@ -214,6 +214,34 @@ async def cb_pending_post(callback: CallbackQuery) -> None:
             pass
 
 
+VOICE_HELP = (
+    "🎙 <b>Голос бренда</b> — как я пишу посты и сообщения от твоего имени.\n\n"
+    "Опиши свой стиль одной строкой:\n"
+    "<code>/voice дружелюбно, на ты, с эмодзи, коротко и по делу</code>\n\n"
+    "Дальше буду писать посты в этом тоне."
+)
+
+
+@router.message(Command("voice"))
+async def cmd_voice(message: Message, command: CommandObject) -> None:
+    if message.from_user is None:
+        return
+    desc = (command.args or "").strip()
+    async with session_factory() as session:
+        if not desc:
+            current = await agent.get_voice(session, message.from_user.id)
+            if current:
+                await message.answer(
+                    f"🎙 Твой голос бренда:\n<blockquote>{current}</blockquote>\n\n"
+                    "Изменить — <code>/voice новое описание</code>."
+                )
+            else:
+                await message.answer(VOICE_HELP)
+            return
+        await agent.set_voice(session, message.from_user.id, desc)
+    await message.answer("✅ Запомнил твой голос бренда. Буду писать посты в этом тоне.")
+
+
 @router.message(Command("autonomy"))
 async def cmd_autonomy(message: Message, command: CommandObject) -> None:
     if message.from_user is None:

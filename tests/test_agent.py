@@ -426,6 +426,50 @@ def test_agent_proposes_post_on_semi(monkeypatch):
     assert result.pending_posts and result.pending_posts[0][1] == "Мой канал"
 
 
+def test_agent_sets_voice(monkeypatch):
+    from wareon.db.base import init_db, session_factory
+
+    res = _run_with_tool(
+        monkeypatch, 850001, "set_voice",
+        {"description": "дружелюбно, на ты, с эмодзи, коротко"},
+    )
+    assert any("стиль" in a for a in res.actions)
+
+    async def check():
+        await init_db()
+        async with session_factory() as s:
+            return await agent.get_voice(s, 850001)
+
+    voice = asyncio.run(check())
+    assert voice is not None and "эмодзи" in voice
+
+
+def test_voice_injected_into_context(monkeypatch):
+    """Голос бренда попадает в первое сообщение, которое видит модель."""
+    from wareon.db.base import init_db, session_factory
+
+    captured = {}
+
+    async def fake_create(messages):
+        captured["first"] = messages[0]["content"]
+        return Resp("end_turn", [txt("ок")])
+
+    monkeypatch.setattr(agent, "_create_message", fake_create)
+    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    uid = 850002
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            await agent.set_voice(s, uid, "строго и официально, на вы")
+        async with session_factory() as s:
+            await agent.run_agent(s, uid, "напиши пост")
+
+    asyncio.run(flow())
+    assert "Голос бренда" in captured["first"]
+    assert "официально" in captured["first"]
+
+
 def test_agent_post_without_channel(monkeypatch):
     from wareon.db.base import init_db, session_factory
 

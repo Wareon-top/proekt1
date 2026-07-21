@@ -175,6 +175,20 @@ class OutgoingPost(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class BrandVoice(Base):
+    """Голос бренда клиента: как ассистент пишет посты и сообщения от его имени.
+
+    Один профиль на клиента. Подаётся в контекст ассистента, чтобы посты
+    в каналы и ответы звучали в тоне клиента, а не «нейтрально от ИИ»."""
+
+    __tablename__ = "brand_voices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_tg_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    description: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AgentSetting(Base):
     """Уровень автономии ИИ-оркестратора для клиента (Раздел 2 «Управляемо»)."""
 

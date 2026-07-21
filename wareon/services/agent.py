@@ -21,6 +21,7 @@ from wareon.db.models import (
     AgentMemory,
     AgentSetting,
     AlertSetting,
+    BrandVoice,
     CustomMetric,
     OutgoingPost,
     Reminder,
@@ -59,6 +60,8 @@ ROLE = """\
 - Узнал важный факт о бизнесе (ниша, товары, предпочтения) — сохрани через remember.
 - Просят напомнить/следить/присылать отчёт — используй set_reminder, set_alert,
   schedule_report, а не обещай на словах.
+- Клиент описал, как писать от его имени, — сохрани через set_voice и дальше пиши
+  посты и сообщения в этом тоне.
 - Пиши коротко, по-деловому, на русском, на «ты». Без воды.
 - Проблему подавай рецептом: Симптом → Причина → Действие.
 """
@@ -190,6 +193,24 @@ TOOLS = [
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
+        "name": "set_voice",
+        "description": (
+            "Сохраняет голос бренда — как клиент хочет, чтобы звучали посты и "
+            "сообщения от его имени (тон, обращение, эмодзи, длина). Вызывай, когда "
+            "клиент описал свой стиль. Дальше пиши посты именно в этом тоне."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "Описание тона: например «дружелюбно, на ты, с эмодзи, коротко»",
+                }
+            },
+            "required": ["description"],
+        },
+    },
+    {
         "name": "post_to_channel",
         "description": (
             "Готовит пост в подключённый канал/группу. channel — название или часть "
@@ -249,6 +270,25 @@ async def set_autonomy(session: AsyncSession, user_tg_id: int, level: str) -> No
         setting.level = level
     else:
         session.add(AgentSetting(user_tg_id=user_tg_id, level=level))
+    await session.commit()
+
+
+async def get_voice(session: AsyncSession, user_tg_id: int) -> str | None:
+    voice = await session.scalar(
+        select(BrandVoice).where(BrandVoice.user_tg_id == user_tg_id)
+    )
+    return voice.description if voice else None
+
+
+async def set_voice(session: AsyncSession, user_tg_id: int, description: str) -> None:
+    description = description.strip()[:500]
+    voice = await session.scalar(
+        select(BrandVoice).where(BrandVoice.user_tg_id == user_tg_id)
+    )
+    if voice:
+        voice.description = description
+    else:
+        session.add(BrandVoice(user_tg_id=user_tg_id, description=description))
     await session.commit()
 
 
@@ -449,6 +489,15 @@ async def _tool_list_channels(ctx: _Ctx, args: dict) -> str:
     return "\n".join(f"- {c.title or c.chat_id} ({c.chat_type})" for c in chats)
 
 
+async def _tool_set_voice(ctx: _Ctx, args: dict) -> str:
+    description = str(args.get("description", "")).strip()
+    if not description:
+        return "Пустое описание тона."
+    await set_voice(ctx.session, ctx.uid, description)
+    ctx.actions.append("запомнил твой стиль")
+    return f"Запомнил голос бренда: {description[:80]}. Буду писать в этом тоне."
+
+
 async def _tool_post_to_channel(ctx: _Ctx, args: dict) -> str:
     channel = str(args.get("channel", "")).strip()
     text = str(args.get("text", "")).strip()
@@ -496,6 +545,7 @@ _TOOLS = {
     "schedule_report": _tool_schedule_report,
     "set_reminder": _tool_set_reminder,
     "list_channels": _tool_list_channels,
+    "set_voice": _tool_set_voice,
     "post_to_channel": _tool_post_to_channel,
 }
 
@@ -558,6 +608,9 @@ async def run_agent(session: AsyncSession, user_tg_id: int, user_message: str) -
     level = await get_autonomy(session, user_tg_id)
     ctx = _Ctx(session=session, uid=user_tg_id, level=level)
     memory = await _load_memory(session, user_tg_id)
+    voice = await get_voice(session, user_tg_id)
+    if voice:
+        memory += f"Голос бренда клиента (пиши посты и сообщения в этом тоне): {voice}\n\n"
     messages: list[dict] = [{"role": "user", "content": memory + user_message}]
 
     for _ in range(MAX_STEPS):
