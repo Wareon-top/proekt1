@@ -158,6 +158,23 @@ class Reminder(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class OutgoingPost(Base):
+    """Пост, который ассистент готовит на публикацию в подключённый канал/группу.
+
+    status: pending — ждёт подтверждения клиента (полу-автоном/ручной);
+    ready — одобрен/автопилот, планировщик публикует; sent — опубликован."""
+
+    __tablename__ = "outgoing_posts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger)
+    chat_title: Mapped[str] = mapped_column(String(255))
+    text: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(12), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AgentSetting(Base):
     """Уровень автономии ИИ-оркестратора для клиента (Раздел 2 «Управляемо»)."""
 

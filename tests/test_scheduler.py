@@ -71,6 +71,50 @@ def test_scheduler_sends_due_reminder():
     assert not any("будущее" in t for who, t in bot.sent)
 
 
+def test_scheduler_publishes_ready_post():
+    from wareon.db.base import init_db, session_factory
+    from wareon.db.models import OutgoingPost
+    from wareon.services import scheduler
+
+    bot = _FakeBot()
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            s.add(
+                OutgoingPost(
+                    user_tg_id=7100, chat_id=-100777, chat_title="Канал",
+                    text="Акция выходного дня!", status="ready",
+                )
+            )
+            s.add(
+                OutgoingPost(
+                    user_tg_id=7100, chat_id=-100777, chat_title="Канал",
+                    text="Ещё черновик", status="pending",
+                )
+            )
+            await s.commit()
+        await scheduler.process_ready_posts(bot)
+        from sqlalchemy import select
+
+        async with session_factory() as s:
+            statuses = sorted(
+                (
+                    await s.scalars(
+                        select(OutgoingPost.status).where(OutgoingPost.user_tg_id == 7100)
+                    )
+                ).all()
+            )
+        return statuses
+
+    statuses = asyncio.run(flow())
+    # опубликованный пост ушёл в канал, черновик остался ждать
+    assert any(t == "Акция выходного дня!" for who, t in bot.sent if who == -100777)
+    assert statuses == ["pending", "sent"]
+    # клиент получил уведомление о публикации
+    assert any("Опубликовал" in t for who, t in bot.sent if who == 7100)
+
+
 def test_scheduler_sends_ai_brief(monkeypatch):
     from wareon.db.base import init_db, session_factory
     from wareon.db.models import ReportSubscription

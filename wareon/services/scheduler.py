@@ -9,7 +9,7 @@ from aiogram.types import BufferedInputFile
 from sqlalchemy import select
 
 from wareon.db.base import session_factory
-from wareon.db.models import Reminder, ReportSubscription
+from wareon.db.models import OutgoingPost, Reminder, ReportSubscription
 from wareon.services import ai, reports
 
 MSK = timezone(timedelta(hours=3))
@@ -97,11 +97,37 @@ async def process_due_reminders(bot: Bot) -> int:
     return sent
 
 
+async def process_ready_posts(bot: Bot) -> int:
+    """Публикует одобренные посты (status=ready) в каналы. Возвращает число публикаций."""
+    sent = 0
+    async with session_factory() as session:
+        ready = (
+            await session.scalars(select(OutgoingPost).where(OutgoingPost.status == "ready"))
+        ).all()
+        for post in ready:
+            try:
+                await bot.send_message(post.chat_id, post.text)
+                post.status = "sent"
+                sent += 1
+                try:
+                    await bot.send_message(
+                        post.user_tg_id, f"✅ Опубликовал пост в «{post.chat_title}»."
+                    )
+                except Exception:
+                    pass
+            except Exception:
+                logger.exception("Не удалось опубликовать пост %s", post.id)
+                post.status = "failed"
+        await session.commit()
+    return sent
+
+
 async def scheduler_loop(bot: Bot) -> None:
     while True:
         try:
             await process_due_subscriptions(bot)
             await process_due_reminders(bot)
+            await process_ready_posts(bot)
         except Exception:
             logger.exception("Ошибка планировщика")
         await asyncio.sleep(CHECK_INTERVAL_SEC)

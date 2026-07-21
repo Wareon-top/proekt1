@@ -6,7 +6,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from wareon.config import settings
 from wareon.db.base import session_factory
-from wareon.db.models import CustomMetric
+from wareon.db.models import CustomMetric, OutgoingPost
 from wareon.services import agent
 
 router = Router(name="agent")
@@ -47,6 +47,28 @@ def _pending_kb(pending: list[tuple[int, str]]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def _post_kb(post_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📢 Опубликовать", callback_data=f"op:ok:{post_id}"),
+                InlineKeyboardButton(text="🚫 Отмена", callback_data=f"op:no:{post_id}"),
+            ]
+        ]
+    )
+
+
+async def _render_pending_posts(message: Message, pending_posts: list[tuple[int, str, str]]) -> None:
+    """Показывает подготовленные ИИ посты и кнопки подтверждения публикации."""
+    for post_id, chat_title, text in pending_posts:
+        preview = (
+            f"📝 <b>Пост для «{chat_title}»</b>\n\n"
+            f"<blockquote>{text}</blockquote>\n\n"
+            "Опубликовать?"
+        )
+        await message.answer(preview, reply_markup=_post_kb(post_id))
+
+
 @router.message(Command("agent"))
 async def cmd_agent(message: Message, command: CommandObject) -> None:
     if message.from_user is None:
@@ -74,6 +96,8 @@ async def cmd_agent(message: Message, command: CommandObject) -> None:
         await message.answer(
             "Предлагаю завести метрики — подтвердишь?", reply_markup=_pending_kb(result.pending)
         )
+    if result.pending_posts:
+        await _render_pending_posts(message, result.pending_posts)
 
 
 QUICK_QUESTIONS = {
@@ -110,6 +134,12 @@ async def cb_quick_ask(callback: CallbackQuery) -> None:
         await callback.message.edit_text(text, reply_markup=_back_kb())
     except Exception:
         await callback.message.answer(text, reply_markup=_back_kb())
+    if result.pending:
+        await callback.message.answer(
+            "Предлагаю завести метрики — подтвердишь?", reply_markup=_pending_kb(result.pending)
+        )
+    if result.pending_posts:
+        await _render_pending_posts(callback.message, result.pending_posts)
 
 
 def _back_kb() -> InlineKeyboardMarkup:
@@ -142,6 +172,39 @@ async def cb_pending_metric(callback: CallbackQuery) -> None:
             await session.delete(metric)
             await session.commit()
             note = f"🚫 Метрика «{metric.title}» отклонена."
+
+    await callback.answer()
+    if callback.message is not None:
+        try:
+            await callback.message.edit_text(note)
+        except Exception:
+            pass
+
+
+@router.callback_query(F.data.startswith("op:"))
+async def cb_pending_post(callback: CallbackQuery) -> None:
+    if callback.data is None or callback.from_user is None:
+        return
+    try:
+        _, action, raw_id = callback.data.split(":")
+        post_id = int(raw_id)
+    except ValueError:
+        await callback.answer("Не понял кнопку.")
+        return
+
+    async with session_factory() as session:
+        post = await session.get(OutgoingPost, post_id)
+        if post is None or post.user_tg_id != callback.from_user.id:
+            await callback.answer("Пост не найден.")
+            return
+        if action == "ok":
+            post.status = "ready"
+            await session.commit()
+            note = f"📢 Публикую пост в «{post.chat_title}»…"
+        else:
+            await session.delete(post)
+            await session.commit()
+            note = "🚫 Пост отменён."
 
     await callback.answer()
     if callback.message is not None:

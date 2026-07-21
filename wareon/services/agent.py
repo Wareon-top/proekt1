@@ -22,9 +22,11 @@ from wareon.db.models import (
     AgentSetting,
     AlertSetting,
     CustomMetric,
+    OutgoingPost,
     Reminder,
     ReportSubscription,
     TableUpload,
+    TrackedChat,
 )
 from wareon.services import ai, reports
 from wareon.services.knowledge import BUSINESS_KNOWLEDGE
@@ -182,6 +184,27 @@ TOOLS = [
             "required": ["text", "hour"],
         },
     },
+    {
+        "name": "list_channels",
+        "description": "Список подключённых каналов/групп клиента, куда можно выложить пост.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "post_to_channel",
+        "description": (
+            "Готовит пост в подключённый канал/группу. channel — название или часть "
+            "названия чата из list_channels. На автопилоте публикует сразу, иначе — "
+            "предлагает и ждёт подтверждения клиента. Пиши пост в стиле клиента."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "channel": {"type": "string", "description": "Название канала/группы"},
+                "text": {"type": "string", "description": "Текст поста"},
+            },
+            "required": ["channel", "text"],
+        },
+    },
 ]
 
 
@@ -195,6 +218,8 @@ class AgentResult:
     actions: list[str] = field(default_factory=list)
     # Метрики, предложенные ИИ и ждущие подтверждения: (id, название).
     pending: list[tuple[int, str]] = field(default_factory=list)
+    # Посты, ждущие подтверждения: (id, канал, превью текста).
+    pending_posts: list[tuple[int, str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -203,6 +228,7 @@ class _Ctx:
     uid: int
     level: str
     pending: list[tuple[int, str]] = field(default_factory=list)
+    pending_posts: list[tuple[int, str, str]] = field(default_factory=list)
     actions: list[str] = field(default_factory=list)
 
 
@@ -408,6 +434,57 @@ async def _tool_set_reminder(ctx: _Ctx, args: dict) -> str:
     return f"Напоминание поставлено на {hour:02d}:{minute:02d} МСК."
 
 
+async def _user_channels(session: AsyncSession, uid: int) -> list[TrackedChat]:
+    return (
+        await session.scalars(
+            select(TrackedChat).where(TrackedChat.added_by_tg_id == uid)
+        )
+    ).all()
+
+
+async def _tool_list_channels(ctx: _Ctx, args: dict) -> str:
+    chats = await _user_channels(ctx.session, ctx.uid)
+    if not chats:
+        return "Подключённых каналов нет. Добавь меня в канал/группу администратором."
+    return "\n".join(f"- {c.title or c.chat_id} ({c.chat_type})" for c in chats)
+
+
+async def _tool_post_to_channel(ctx: _Ctx, args: dict) -> str:
+    channel = str(args.get("channel", "")).strip()
+    text = str(args.get("text", "")).strip()
+    if not text:
+        return "Пустой текст поста."
+    chats = await _user_channels(ctx.session, ctx.uid)
+    if not chats:
+        return "Нет подключённых каналов — добавь меня в канал администратором."
+    target = None
+    for c in chats:
+        title = (c.title or "").lower()
+        if channel.lower() in title or channel == str(c.chat_id):
+            target = c
+            break
+    if target is None:
+        return "Такой канал не найден. Посмотри list_channels и укажи название точнее."
+
+    status = "ready" if ctx.level == "autopilot" else "pending"
+    post = OutgoingPost(
+        user_tg_id=ctx.uid,
+        chat_id=target.chat_id,
+        chat_title=target.title or str(target.chat_id),
+        text=text,
+        status=status,
+    )
+    ctx.session.add(post)
+    await ctx.session.commit()
+    await ctx.session.refresh(post)
+
+    if status == "pending":
+        ctx.pending_posts.append((post.id, post.chat_title, text[:80]))
+        return f"Пост для «{post.chat_title}» подготовлен и ждёт подтверждения клиента."
+    ctx.actions.append(f"выложу пост в «{post.chat_title}»")
+    return f"Пост поставлен в очередь на публикацию в «{post.chat_title}»."
+
+
 _TOOLS = {
     "get_panel": _tool_get_panel,
     "list_metrics": _tool_list_metrics,
@@ -418,6 +495,8 @@ _TOOLS = {
     "set_alert": _tool_set_alert,
     "schedule_report": _tool_schedule_report,
     "set_reminder": _tool_set_reminder,
+    "list_channels": _tool_list_channels,
+    "post_to_channel": _tool_post_to_channel,
 }
 
 
@@ -486,10 +565,10 @@ async def run_agent(session: AsyncSession, user_tg_id: int, user_message: str) -
             response = await _create_message(messages)
         except Exception:
             logger.exception("Вызов модели упал для %s", user_tg_id)
-            return AgentResult(ai.ERROR_MSG, actions=ctx.actions, pending=ctx.pending)
+            return AgentResult(ai.ERROR_MSG, actions=ctx.actions, pending=ctx.pending, pending_posts=ctx.pending_posts)
 
         if getattr(response, "stop_reason", None) != "tool_use":
-            return AgentResult(_text_of(response), actions=ctx.actions, pending=ctx.pending)
+            return AgentResult(_text_of(response), actions=ctx.actions, pending=ctx.pending, pending_posts=ctx.pending_posts)
 
         messages.append({"role": "assistant", "content": response.content})
         tool_results = []
@@ -506,4 +585,5 @@ async def run_agent(session: AsyncSession, user_tg_id: int, user_message: str) -
         "Не смог завершить за отведённые шаги — уточни задачу.",
         actions=ctx.actions,
         pending=ctx.pending,
+        pending_posts=ctx.pending_posts,
     )

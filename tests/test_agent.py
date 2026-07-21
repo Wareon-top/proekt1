@@ -342,3 +342,110 @@ def test_agent_remembers_and_recalls(monkeypatch):
 
     mem = asyncio.run(recall())
     assert "чехлы на WB" in mem
+
+
+# ── Публикация в канал ───────────────────────────────────────────────────────
+async def _seed_channel(session_factory_, uid, chat_id=-100500, title="Мой канал"):
+    from wareon.db.models import TrackedChat
+
+    async with session_factory_() as s:
+        s.add(
+            TrackedChat(
+                chat_id=chat_id, title=title, chat_type="channel", added_by_tg_id=uid
+            )
+        )
+        await s.commit()
+
+
+def test_agent_posts_to_channel_on_autopilot(monkeypatch):
+    from sqlalchemy import select
+
+    from wareon.db.base import init_db, session_factory
+    from wareon.db.models import OutgoingPost
+
+    scripted(
+        monkeypatch,
+        [
+            Resp(
+                "tool_use",
+                [tool("t1", "post_to_channel", {"channel": "Мой канал", "text": "Скидка 20%!"})],
+            ),
+            Resp("end_turn", [txt("Опубликую пост.")]),
+        ],
+    )
+    uid = 840001
+
+    async def flow():
+        await init_db()
+        await _seed_channel(session_factory, uid, chat_id=-100501)
+        async with session_factory() as s:
+            await agent.set_autonomy(s, uid, "autopilot")
+        async with session_factory() as s:
+            result = await agent.run_agent(s, uid, "выложи пост про скидку")
+        async with session_factory() as s:
+            post = await s.scalar(select(OutgoingPost).where(OutgoingPost.user_tg_id == uid))
+        return result, post
+
+    result, post = asyncio.run(flow())
+    assert post is not None
+    assert post.status == "ready"  # автопилот — сразу в очередь на публикацию
+    assert post.text == "Скидка 20%!"
+    assert not result.pending_posts  # ничего подтверждать не нужно
+
+
+def test_agent_proposes_post_on_semi(monkeypatch):
+    from sqlalchemy import select
+
+    from wareon.db.base import init_db, session_factory
+    from wareon.db.models import OutgoingPost
+
+    scripted(
+        monkeypatch,
+        [
+            Resp(
+                "tool_use",
+                [tool("t1", "post_to_channel", {"channel": "Мой канал", "text": "Новинка!"})],
+            ),
+            Resp("end_turn", [txt("Подготовил пост, подтверди.")]),
+        ],
+    )
+    uid = 840002  # semi по умолчанию
+
+    async def flow():
+        await init_db()
+        await _seed_channel(session_factory, uid, chat_id=-100502)
+        async with session_factory() as s:
+            result = await agent.run_agent(s, uid, "выложи пост")
+        async with session_factory() as s:
+            post = await s.scalar(select(OutgoingPost).where(OutgoingPost.user_tg_id == uid))
+        return result, post
+
+    result, post = asyncio.run(flow())
+    assert post is not None
+    assert post.status == "pending"  # ждёт подтверждения
+    assert result.pending_posts and result.pending_posts[0][1] == "Мой канал"
+
+
+def test_agent_post_without_channel(monkeypatch):
+    from wareon.db.base import init_db, session_factory
+
+    scripted(
+        monkeypatch,
+        [
+            Resp(
+                "tool_use",
+                [tool("t1", "post_to_channel", {"channel": "Канал", "text": "Привет"})],
+            ),
+            Resp("end_turn", [txt("Каналов нет.")]),
+        ],
+    )
+    uid = 840003
+
+    async def flow():
+        await init_db()
+        async with session_factory() as s:
+            return await agent.run_agent(s, uid, "выложи пост")
+
+    result = asyncio.run(flow())
+    assert not result.pending_posts
+    assert not result.actions
