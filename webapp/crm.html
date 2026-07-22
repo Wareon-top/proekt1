@@ -94,6 +94,40 @@
   .notice b{color:var(--ac)}
   .empty{text-align:center;padding:40px 20px;color:var(--mu);font-size:13px;font-weight:500}
   .fp{text-align:center;font-size:10.5px;color:var(--mu);margin-top:18px;font-weight:600}
+  /* view switcher */
+  .seg{display:inline-flex;gap:3px;background:var(--cd);border:1px solid var(--ln);border-radius:12px;
+    padding:3px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .seg button{font-family:inherit;font-size:12px;font-weight:700;border:none;border-radius:9px;
+    padding:7px 14px;cursor:pointer;background:transparent;color:var(--mu);white-space:nowrap}
+  .seg button.on{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#20180a}
+  /* kanban board */
+  .board{display:none;gap:11px;overflow-x:auto;padding-bottom:8px;scrollbar-width:thin}
+  .col{flex:0 0 auto;width:224px;background:var(--cd2);border:1px solid var(--ln);border-radius:14px;
+    padding:9px;display:flex;flex-direction:column;gap:8px;min-height:80px}
+  .col.drop{border-color:var(--ac);background:var(--ac-s)}
+  .col-hd{display:flex;align-items:center;justify-content:space-between;padding:2px 3px}
+  .col-hd .ct{font-size:11px;font-weight:800;letter-spacing:-.2px}
+  .col-hd .cn{font-size:10px;font-weight:800;color:var(--mu);background:var(--cd);border:1px solid var(--ln);
+    border-radius:20px;padding:1px 8px}
+  .col-sum{font-size:9.5px;color:var(--mu);font-weight:700;padding:0 3px}
+  .bc{background:var(--cd);border:1px solid var(--ln);border-left:3px solid var(--mu);border-radius:11px;
+    padding:9px 10px;box-shadow:var(--shadow);cursor:grab}
+  .bc:active{cursor:grabbing}
+  .bc.od{border-left-color:var(--red)}
+  .bc-nm{font-size:13px;font-weight:700;line-height:1.25;margin-bottom:5px;word-break:break-word}
+  .bc-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:10px;font-weight:700}
+  .bc-amt{color:var(--green)}
+  .bc-dl{color:var(--mu)} .bc-dl.od{color:var(--red)}
+  .bc-pr{padding:1px 7px;border-radius:20px;font-size:9px;font-weight:800}
+  .bc-nav{display:flex;gap:5px;margin-top:8px}
+  .bc-nav button{flex:1;font-family:inherit;border:1px solid var(--ln);background:var(--cd2);color:var(--ink);
+    border-radius:8px;padding:5px;font-size:12px;font-weight:800;cursor:pointer;line-height:1}
+  .bc-nav button:disabled{opacity:.3;cursor:default}
+  .bc-nav button:active:not(:disabled){transform:scale(.95)}
+  [data-view="board"] .tw{display:none!important}
+  [data-view="board"] .cards{display:none!important}
+  [data-view="board"] .pills{display:none}
+  [data-view="board"] .board{display:flex}
   @media(max-width:860px){ .tw{display:none} .cards{display:flex} }
 </style>
 </head>
@@ -122,6 +156,7 @@
     <input type="file" id="imp" accept=".csv" style="display:none" onchange="importCSV(event)">
   </div>
 
+  <div class="seg" id="seg"></div>
   <div class="pills" id="pills"></div>
 
   <div class="tw">
@@ -131,6 +166,7 @@
     </table>
   </div>
   <div class="cards" id="cards"></div>
+  <div class="board" id="board"></div>
 
   <div class="fp">Wareon · ИИ бизнес-ассистент</div>
 </div>
@@ -156,7 +192,9 @@ const COLS=[["name","Имя / магазин"],["platform","Площадка"],[
   ["orderDate","Дата"],["deadline","Дедлайн"],["nextStep","След. шаг"],["note","Заметка"]];
 
 const KEY="wareon_crm_v4";
+const VIEWS=[["list","Таблица"],["board","Канбан"],["today","🔥 Горит"]];
 let rows=[], sortKey="", sortDir=1, filterStatus="Все", saveTimer;
+let view=localStorage.getItem("wareon_crm_view")||"list";
 
 function load(){ try{ rows=JSON.parse(localStorage.getItem(KEY))||[]; }catch(e){ rows=[]; } }
 function save(){
@@ -167,6 +205,11 @@ function save(){
 function col(v,arr){ return (arr.find(x=>x.v===v)||arr[0]).c; }
 function fmt(n){ return n?Number(n).toLocaleString("ru-RU"):"—"; }
 function isOverdue(r){ return r.deadline && DONE.indexOf(r.status)<0 && new Date(r.deadline)<new Date(); }
+function isDueToday(r){ if(!r.deadline||DONE.indexOf(r.status)>=0)return false;
+  return new Date(r.deadline).toDateString()===new Date().toDateString(); }
+function isHot(r){ return DONE.indexOf(r.status)<0 && (r.priority==="Срочно"||isOverdue(r)||isDueToday(r)); }
+function setView(v){ view=v; localStorage.setItem("wareon_crm_view",v);
+  if(tg&&tg.HapticFeedback)try{tg.HapticFeedback.selectionChanged();}catch(e){} render(); }
 
 function addRow(){
   rows.push({id:Date.now(),name:"",platform:"Telegram",contact:"",orderType:"Инфографика",
@@ -180,11 +223,11 @@ function upd(id,f,v){ const r=rows.find(x=>x.id===id); if(r){r[f]=v; save(); upd
 function sortBy(k){ if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=1;} render(); }
 function setFilter(s){ filterStatus=s; render(); }
 
-function getFiltered(){
+function getFiltered(ignoreStatus){
   const q=(document.getElementById("search").value||"").toLowerCase();
   let f=rows.filter(r=>{
     const mq=!q||(r.name||"").toLowerCase().includes(q)||(r.contact||"").toLowerCase().includes(q)||(r.note||"").toLowerCase().includes(q);
-    return mq && (filterStatus==="Все"||r.status===filterStatus);
+    return mq && (ignoreStatus||filterStatus==="Все"||r.status===filterStatus);
   });
   if(sortKey) f.sort((a,b)=>{const av=a[sortKey]||"",bv=b[sortKey]||"";return av<bv?-sortDir:av>bv?sortDir:0;});
   return f;
@@ -202,6 +245,14 @@ function updateKPI(){
   document.getElementById("kpi").innerHTML=
     kc(total,"Всего")+kc(active,"В работе")+kc(inwork,"Сдаётся","gold")+kc(paid,"Оплат","green")+
     kc(overdue,"Просрочено","red")+kc(fmt(rev),"Выручка ₽","green")+kc(fmt(pipe),"Воронка ₽","gold");
+}
+
+function buildSeg(){
+  document.getElementById("seg").innerHTML=VIEWS.map(([v,l])=>{
+    const hot=v==="today"?rows.filter(isHot).length:0;
+    const badge=hot?` ${hot}`:"";
+    return `<button class="${view===v?'on':''}" onclick="setView('${v}')">${l}${badge}</button>`;
+  }).join("");
 }
 
 function buildPills(){
@@ -268,9 +319,60 @@ function renderCards(f){
   }).join("");
 }
 
+/* ── kanban board ── */
+const STATUS_ORDER=STATUSES.map(s=>s.v);
+function moveStatus(id,dir){
+  const r=rows.find(x=>x.id===id); if(!r) return;
+  const i=STATUS_ORDER.indexOf(r.status), j=i+dir;
+  if(j<0||j>=STATUS_ORDER.length) return;
+  r.status=STATUS_ORDER[j];
+  if(tg&&tg.HapticFeedback)try{tg.HapticFeedback.impactOccurred("light");}catch(e){}
+  save(); render();
+}
+function dropTo(status){
+  const id=window._drag; window._drag=null;
+  if(id==null) return;
+  const r=rows.find(x=>x.id===id);
+  if(r&&r.status!==status){ r.status=status; save(); }
+  render();
+}
+function renderBoard(f){
+  const board=document.getElementById("board");
+  const byStatus={}; STATUS_ORDER.forEach(s=>byStatus[s]=[]);
+  f.forEach(r=>{ if(byStatus[r.status]) byStatus[r.status].push(r); else (byStatus[r.status]=[r]); });
+  board.innerHTML=STATUSES.map(s=>{
+    const list=byStatus[s.v]||[];
+    let sum=0; list.forEach(r=>sum+=parseFloat(r.amount)||0);
+    const cards=list.map(r=>{
+      const od=isOverdue(r), pc=col(r.priority,PRIORITIES), i=STATUS_ORDER.indexOf(r.status);
+      const dl=r.deadline?`<span class="bc-dl ${od?'od':''}">📅 ${r.deadline}</span>`:"";
+      const amt=(parseFloat(r.amount)||0)>0?`<span class="bc-amt">${fmt(r.amount)} ₽</span>`:"";
+      const pr=r.priority==="Срочно"?`<span class="bc-pr" style="background:${pc}22;color:${pc}">Срочно</span>`:"";
+      return `<div class="bc ${od?'od':''}" draggable="true"
+          ondragstart="window._drag=${r.id}" ondragend="window._drag=null">
+        <div class="bc-nm">${esc(r.name)||"— без имени —"}</div>
+        <div class="bc-meta">${amt}${pr}${dl}</div>
+        <div class="bc-nav">
+          <button onclick="moveStatus(${r.id},-1)" ${i<=0?'disabled':''}>◀</button>
+          <button onclick="moveStatus(${r.id},1)" ${i>=STATUS_ORDER.length-1?'disabled':''}>▶</button>
+        </div></div>`;
+    }).join("")||`<div class="col-sum" style="padding:10px 3px">пусто</div>`;
+    const sumLine=sum>0?`<div class="col-sum">${fmt(sum)} ₽</div>`:"";
+    return `<div class="col" data-status="${esc(s.v)}"
+        ondragover="event.preventDefault();this.classList.add('drop')"
+        ondragleave="this.classList.remove('drop')"
+        ondrop="event.preventDefault();this.classList.remove('drop');dropTo('${s.v.replace(/'/g,"\\'")}')">
+      <div class="col-hd"><span class="ct" style="color:${s.c}">${s.v}</span><span class="cn">${list.length}</span></div>
+      ${sumLine}${cards}</div>`;
+  }).join("");
+}
+
 function render(){
-  buildPills(); updateKPI();
-  const f=getFiltered();
+  document.documentElement.setAttribute("data-view",view);
+  buildSeg(); buildPills(); updateKPI();
+  if(view==="board"){ renderBoard(getFiltered(true)); return; }
+  let f=getFiltered();
+  if(view==="today") f=f.filter(isHot);
   if(window.innerWidth<860) renderCards(f); else renderTable(f);
 }
 
